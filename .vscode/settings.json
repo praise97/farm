@@ -4,6 +4,9 @@
         "npm install": true,
         "npm --prefix .\\crop-database\\api": true,
         "psql": true,
-        "mysql": true
+        "mysql": true,
+        "git remote": true,
+        "git add": true,
+        "git commit": true
     }
 }
