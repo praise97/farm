@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FarmSmartPro — Login</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+  <link rel="stylesheet" href="login.css" />
+  <script defer src="login.js?v=4"></script>
+</head>
+<body>
+  <main class="login-shell">
+    <section class="login-card">
+      <div class="login-left">
+        <div class="brand-row">
+          <div class="brand-mark"><i class="fas fa-leaf"></i></div>
+          <div class="brand-text">
+            <span class="brand-name">FarmSmartPro</span>
+            <span class="brand-subtitle">AI Farm Control Center</span>
+          </div>
+        </div>
+
+        <div class="hero-copy">
+          <span class="eyebrow">Secure access</span>
+          <h1>Welcome back</h1>
+          <p>Log in to manage crops, monitor fields, and act on AI-powered farm insights.</p>
+        </div>
+
+        <form id="loginForm" class="login-form" action="#" method="post">
+          <div class="field">
+            <label for="identifier">Email or username</label>
+            <div class="input-wrap">
+              <i class="fas fa-envelope field-icon"></i>
+              <input id="identifier" name="identifier" type="text" placeholder="farmer@example.com or johnfarmer" autocomplete="username" required />
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="password">Password</label>
+            <div class="input-wrap">
+              <i class="fas fa-lock field-icon"></i>
+              <input id="password" name="password" type="password" placeholder="Enter your password" autocomplete="current-password" required />
+              <button type="button" id="togglePassword" class="toggle-password" aria-label="Toggle password visibility">
+                <i class="fas fa-eye" id="pwIcon"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="form-meta">
+            <label class="remember-me">
+              <input type="checkbox" checked />
+              <span>Remember me</span>
+            </label>
+            <a href="#" class="forgot-link">Forgot password?</a>
+          </div>
+
+          <button type="submit" class="primary-btn">
+            <i class="fas fa-arrow-right-to-bracket"></i>
+            <span>Log In</span>
+          </button>
+        </form>
+
+        <div class="divider"><span>or continue with</span></div>
+
+        <div class="cta-row">
+          <button type="button" class="secondary-btn" id="createAccountBtn">
+            <i class="fas fa-user-plus"></i>
+            <span>Create account</span>
+          </button>
+          <button type="button" class="ghost-btn" id="demoAccessBtn">
+            <i class="fas fa-spray-can-sparkles"></i>
+            <span>Try demo access</span>
+          </button>
+        </div>
+
+        <p class="footnote">
+          <i class="fas fa-shield-alt"></i>
+          Secure access for crop planning, alerts, and AI guidance.
+        </p>
+      </div>
+
+      <aside class="login-right">
+        <div class="panel-topline">
+          <span class="status-pill"><i class="fas fa-circle"></i> AI monitoring active</span>
+        </div>
+
+        <div class="statement">
+          <p class="quote-mark">“</p>
+          <h2>Smart farming starts here.</h2>
+          <p class="supporting-copy">
+            Track field health, weather, pest risk, and equipment readiness from one control center.
+          </p>
+        </div>
+
+        <div class="feature-list">
+          <div class="feature-item">
+            <span class="feature-icon"><i class="fas fa-seedling"></i></span>
+            <div>
+              <strong>Crop growth tracking</strong>
+              <p>Monitor plot progress at a glance.</p>
+            </div>
+          </div>
+          <div class="feature-item">
+            <span class="feature-icon"><i class="fas fa-cloud-sun"></i></span>
+            <div>
+              <strong>Live weather signals</strong>
+              <p>See the forecast before planning field work.</p>
+            </div>
+          </div>
+          <div class="feature-item">
+            <span class="feature-icon"><i class="fas fa-bell"></i></span>
+            <div>
+              <strong>Smart alerts</strong>
+              <p>React quickly to moisture and pest warnings.</p>
+            </div>
+          </div>
+          <div class="feature-item">
+            <span class="feature-icon"><i class="fas fa-robot"></i></span>
+            <div>
+              <strong>AI recommendations</strong>
+              <p>Get proactive next-step guidance for the farm.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="badge-row">
+          <i class="fas fa-leaf"></i>
+          <span>FarmSmartPro • v2.4 • AI Farm Control Center</span>
+        </div>
+      </aside>
+    </section>
+  </main>
+</body>
+</html>
