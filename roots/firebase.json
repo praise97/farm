@@ -1,0 +1,31 @@
+{
+  "firestore": {
+    "rules": "firestore.rules"
+  },
+  "storage": {
+    "rules": "storage.rules"
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "roots-farm-abf39",
+          "appId": "1:34542343698:android:16300abab5a7010ca02acb",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "roots-farm-abf39",
+          "configurations": {
+            "android": "1:34542343698:android:16300abab5a7010ca02acb",
+            "ios": "1:34542343698:ios:f3a168493c41ab0fa02acb",
+            "macos": "1:34542343698:ios:f3a168493c41ab0fa02acb",
+            "web": "1:34542343698:web:44ada0ae91d42de4a02acb",
+            "windows": "1:34542343698:web:1fdc3882f4bfb7d7a02acb"
+          }
+        }
+      }
+    }
+  }
+}
