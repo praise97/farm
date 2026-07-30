@@ -1,0 +1,209 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
+import '../../../core/constants/enums.dart';
+import '../../../core/theme/roots_theme.dart';
+import '../../../domain/entities/animal.dart';
+import '../../providers/app_providers.dart';
+
+class AnimalFormScreen extends ConsumerStatefulWidget {
+  const AnimalFormScreen({super.key, this.animalId});
+
+  final String? animalId;
+
+  @override
+  ConsumerState<AnimalFormScreen> createState() => _AnimalFormScreenState();
+}
+
+class _AnimalFormScreenState extends ConsumerState<AnimalFormScreen> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _tag;
+  late final TextEditingController _breed;
+  late final TextEditingController _category;
+  late final TextEditingController _weight;
+  late final TextEditingController _colour;
+  late final TextEditingController _location;
+  late final TextEditingController _owner;
+  AnimalGender _gender = AnimalGender.female;
+  AnimalStatus _status = AnimalStatus.alive;
+  DateTime _birthDate = DateTime.now().subtract(const Duration(days: 365));
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final existing = widget.animalId == null
+        ? null
+        : ref.read(appRepositoryProvider).animal(widget.animalId!);
+    _tag = TextEditingController(text: existing?.tagNumber ?? '');
+    _breed = TextEditingController(text: existing?.breed ?? '');
+    _category = TextEditingController(text: existing?.category ?? 'Cattle');
+    _weight = TextEditingController(text: existing?.weight.toString() ?? '');
+    _colour = TextEditingController(text: existing?.colour ?? '');
+    _location = TextEditingController(text: existing?.location ?? '');
+    _owner = TextEditingController(
+      text: existing?.currentOwner ?? ref.read(authStateProvider).valueOrNull?.name ?? '',
+    );
+    if (existing != null) {
+      _gender = existing.gender;
+      _status = existing.status;
+      _birthDate = existing.birthDate;
+    }
+  }
+
+  @override
+  void dispose() {
+    _tag.dispose();
+    _breed.dispose();
+    _category.dispose();
+    _weight.dispose();
+    _colour.dispose();
+    _location.dispose();
+    _owner.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _saving = true);
+    final user = ref.read(authStateProvider).valueOrNull!;
+    final repo = ref.read(appRepositoryProvider);
+    final existing = widget.animalId == null ? null : repo.animal(widget.animalId!);
+    final now = DateTime.now();
+    final animal = Animal(
+      id: existing?.id ?? repo.newId(),
+      farmId: user.farmId,
+      tagNumber: _tag.text.trim(),
+      qrCode: _tag.text.trim(),
+      breed: _breed.text.trim(),
+      category: _category.text.trim(),
+      gender: _gender,
+      birthDate: _birthDate,
+      weight: double.parse(_weight.text.trim()),
+      colour: _colour.text.trim().isEmpty ? null : _colour.text.trim(),
+      currentOwner: _owner.text.trim(),
+      location: _location.text.trim().isEmpty ? null : _location.text.trim(),
+      status: _status,
+      updatedAt: now,
+      createdAt: existing?.createdAt ?? now,
+    );
+    await repo.saveAnimal(animal);
+    if (existing == null) {
+      await repo.addTimelineEvent(AnimalTimelineEvent(
+        id: repo.newId(),
+        animalId: animal.id,
+        farmId: animal.farmId,
+        type: TimelineEventType.tagIssued,
+        title: 'Tag Issued',
+        notes: animal.tagNumber,
+        date: now,
+      ));
+    }
+    bumpData(ref);
+    if (!mounted) return;
+    context.go('/livestock/${animal.id}');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text(widget.animalId == null ? 'Add Animal' : 'Edit Animal')),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 640),
+          child: Form(
+            key: _formKey,
+            child: ListView(
+              padding: const EdgeInsets.all(20),
+              children: [
+                TextFormField(
+                  controller: _tag,
+                  decoration: const InputDecoration(labelText: 'Tag Number', prefixIcon: Icon(Icons.qr_code)),
+                  validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _breed,
+                  decoration: const InputDecoration(labelText: 'Breed'),
+                  validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _category,
+                  decoration: const InputDecoration(labelText: 'Category (Cattle, Goat, Sheep…)'),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: DropdownButtonFormField<AnimalGender>(
+                        value: _gender,
+                        decoration: const InputDecoration(labelText: 'Gender'),
+                        items: AnimalGender.values
+                            .map((g) => DropdownMenuItem(value: g, child: Text(g.label)))
+                            .toList(),
+                        onChanged: (v) => setState(() => _gender = v!),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: DropdownButtonFormField<AnimalStatus>(
+                        value: _status,
+                        decoration: const InputDecoration(labelText: 'Status'),
+                        items: AnimalStatus.values
+                            .map((s) => DropdownMenuItem(value: s, child: Text(s.label)))
+                            .toList(),
+                        onChanged: (v) => setState(() => _status = v!),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Birth Date'),
+                  subtitle: Text('${_birthDate.year}-${_birthDate.month.toString().padLeft(2, '0')}-${_birthDate.day.toString().padLeft(2, '0')}'),
+                  trailing: const Icon(Icons.calendar_month),
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: _birthDate,
+                      firstDate: DateTime(1990),
+                      lastDate: DateTime.now(),
+                    );
+                    if (picked != null) setState(() => _birthDate = picked);
+                  },
+                ),
+                TextFormField(
+                  controller: _weight,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(labelText: 'Weight (kg)', suffixText: 'kg'),
+                  validator: (v) => double.tryParse(v ?? '') == null ? 'Enter weight' : null,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(controller: _colour, decoration: const InputDecoration(labelText: 'Colour')),
+                const SizedBox(height: 12),
+                TextFormField(controller: _location, decoration: const InputDecoration(labelText: 'Location / Pen')),
+                const SizedBox(height: 12),
+                TextFormField(controller: _owner, decoration: const InputDecoration(labelText: 'Current Owner')),
+                const SizedBox(height: 20),
+                FilledButton(
+                  onPressed: _saving ? null : _save,
+                  child: _saving
+                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Text('Save Animal'),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Age is calculated automatically from birth date. QR code uses the tag number.',
+                  style: TextStyle(color: RootsColors.muted, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
