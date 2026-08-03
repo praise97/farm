@@ -122,6 +122,51 @@ class SyncService {
                   .doc(data['id'] as String)
                   .set(data, SetOptions(merge: true));
             }
+          case 'upsertField':
+            if (data != null) {
+              await db
+                  .collection('farms')
+                  .doc(farmId)
+                  .collection('fields')
+                  .doc(data['id'] as String)
+                  .set(data, SetOptions(merge: true));
+            }
+          case 'upsertCropCatalog':
+            if (data != null) {
+              await db
+                  .collection('farms')
+                  .doc(farmId)
+                  .collection('cropCatalog')
+                  .doc(data['id'] as String)
+                  .set(data, SetOptions(merge: true));
+            }
+          case 'upsertVariety':
+            if (data != null) {
+              await db
+                  .collection('farms')
+                  .doc(farmId)
+                  .collection('varieties')
+                  .doc(data['id'] as String)
+                  .set(data, SetOptions(merge: true));
+            }
+          case 'upsertTreatment':
+            if (data != null) {
+              await db
+                  .collection('farms')
+                  .doc(farmId)
+                  .collection('treatments')
+                  .doc(data['id'] as String)
+                  .set(data, SetOptions(merge: true));
+            }
+          case 'upsertObservation':
+            if (data != null) {
+              await db
+                  .collection('farms')
+                  .doc(farmId)
+                  .collection('observations')
+                  .doc(data['id'] as String)
+                  .set(data, SetOptions(merge: true));
+            }
           case 'upsertTimeline':
             if (data != null) {
               await db
@@ -186,6 +231,11 @@ class SyncService {
     await _pullCollection(db, farmId, 'finance', HiveBoxes.finance);
     await _pullCollection(db, farmId, 'tasks', HiveBoxes.tasks);
     await _pullCollection(db, farmId, 'crops', HiveBoxes.crops);
+    await _pullCollection(db, farmId, 'cropCatalog', HiveBoxes.cropCatalog);
+    await _pullCollection(db, farmId, 'varieties', HiveBoxes.varieties);
+    await _pullCollection(db, farmId, 'fields', HiveBoxes.fields);
+    await _pullCollection(db, farmId, 'treatments', HiveBoxes.treatments);
+    await _pullCollection(db, farmId, 'observations', HiveBoxes.observations);
     await _pullCollection(db, farmId, 'alerts', HiveBoxes.alerts);
     await _pullCollection(db, farmId, 'timeline', HiveBoxes.timeline);
 

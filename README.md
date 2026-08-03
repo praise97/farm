@@ -1,15 +1,17 @@
-# Farm → Roots
+# Roots
 
-The original HTML crop prototype is in [`farm/`](farm/).
+Flutter farm app (livestock, crops, equipment, inventory, finance).
 
-The full multi-platform Flutter app is in [`roots/`](roots/).
+**Only this folder is the product.** Database = Firebase (Auth + Firestore).
 
 ```bash
 cd roots
 flutter pub get
-flutter run -d windows   # or chrome / android
+flutter run
+flutter build apk --release
 ```
 
-Demo: `farmer@roots.app` / `roots123`
+Demo: `farmer@roots.app` / `roots123`  
+Cloud sync: register a farm account in-app.
 
-See [`roots/README.md`](roots/README.md) and [`roots/FIREBASE_SETUP.md`](roots/FIREBASE_SETUP.md).
+See `FIREBASE_SETUP.md` and `docs/CROP_FIREBASE.md`.

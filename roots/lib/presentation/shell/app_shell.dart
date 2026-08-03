@@ -11,11 +11,11 @@ class AppShell extends ConsumerWidget {
   final Widget child;
 
   static const destinations = <_NavItem>[
-    _NavItem('Dashboard', Icons.dashboard_outlined, Icons.dashboard, '/dashboard'),
+    _NavItem('Dashboard', Icons.grid_view_rounded, Icons.grid_view_rounded, '/dashboard'),
     _NavItem('Livestock', Icons.pets_outlined, Icons.pets, '/livestock'),
+    _NavItem('Crops', Icons.grass_outlined, Icons.grass, '/crops'),
     _NavItem('Equipment', Icons.agriculture_outlined, Icons.agriculture, '/equipment'),
     _NavItem('Inventory', Icons.inventory_2_outlined, Icons.inventory_2, '/inventory'),
-    _NavItem('Crops', Icons.grass_outlined, Icons.grass, '/crops'),
     _NavItem('Finance', Icons.account_balance_wallet_outlined, Icons.account_balance_wallet, '/finance'),
     _NavItem('Tasks', Icons.task_alt_outlined, Icons.task_alt, '/tasks'),
     _NavItem('Map', Icons.map_outlined, Icons.map, '/map'),
@@ -24,19 +24,6 @@ class AppShell extends ConsumerWidget {
     _NavItem('Alerts', Icons.notifications_outlined, Icons.notifications, '/alerts'),
     _NavItem('Settings', Icons.settings_outlined, Icons.settings, '/settings'),
   ];
-
-  /// Primary sidebar items shown on mobile and desktop.
-  static const sidebarItems = <_NavItem>[
-    _NavItem('Dashboard', Icons.dashboard_outlined, Icons.dashboard, '/dashboard'),
-    _NavItem('Livestock', Icons.pets_outlined, Icons.pets, '/livestock'),
-    _NavItem('Inventory', Icons.inventory_2_outlined, Icons.inventory_2, '/inventory'),
-    _NavItem('Tasks', Icons.task_alt_outlined, Icons.task_alt, '/tasks'),
-  ];
-
-  int _indexForLocation(String location, List<_NavItem> items) {
-    final i = items.indexWhere((d) => location.startsWith(d.path));
-    return i < 0 ? -1 : i;
-  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -48,7 +35,9 @@ class AppShell extends ConsumerWidget {
 
     void onSelect(String path) {
       context.go(path);
-      if (!isDesktop) Navigator.of(context).pop();
+      if (!isDesktop && Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
     }
 
     Future<void> onLogout() async {
@@ -56,17 +45,12 @@ class AppShell extends ConsumerWidget {
       if (context.mounted) context.go('/login');
     }
 
-    final sidebar = _AppSidebar(
-      items: isDesktop ? destinations : sidebarItems,
-      selectedIndex: isDesktop
-          ? _indexForLocation(location, destinations)
-          : _indexForLocation(location, sidebarItems),
+    final sidebar = _AuraSidebar(
+      selectedPath: location,
       unread: unread,
       userName: user?.name ?? 'Guest',
-      userRole: user?.role.name ?? '',
-      initials: user?.initials ?? 'R',
-      compact: !isDesktop,
-      onSelect: (item) => onSelect(item.path),
+      showAll: isDesktop,
+      onSelect: onSelect,
       onLogout: onLogout,
     );
 
@@ -74,7 +58,7 @@ class AppShell extends ConsumerWidget {
       return Scaffold(
         body: Row(
           children: [
-            sidebar,
+            SizedBox(width: 280, child: sidebar),
             Expanded(child: child),
           ],
         ),
@@ -99,23 +83,16 @@ class AppShell extends ConsumerWidget {
               child: const Icon(Icons.notifications_outlined),
             ),
           ),
-          PopupMenuButton<String>(
-            onSelected: (v) => context.go('/$v'),
-            itemBuilder: (_) => const [
-              PopupMenuItem(value: 'equipment', child: Text('Equipment')),
-              PopupMenuItem(value: 'crops', child: Text('Crops')),
-              PopupMenuItem(value: 'finance', child: Text('Finance')),
-              PopupMenuItem(value: 'map', child: Text('Farm Map')),
-              PopupMenuItem(value: 'reports', child: Text('Reports')),
-              PopupMenuItem(value: 'workers', child: Text('Workers')),
-              PopupMenuItem(value: 'settings', child: Text('Settings')),
-            ],
-          ),
         ],
       ),
       drawer: Drawer(
-        backgroundColor: RootsColors.navy,
-        child: SafeArea(child: sidebar),
+        width: MediaQuery.sizeOf(context).width * 0.75,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.horizontal(right: Radius.circular(28)),
+        ),
+        child: sidebar,
       ),
       body: child,
     );
@@ -137,138 +114,230 @@ class _NavItem {
   final String path;
 }
 
-class _AppSidebar extends StatelessWidget {
-  const _AppSidebar({
-    required this.items,
-    required this.selectedIndex,
+/// AURA-style dark sidebar: brand header, section labels, active pill, red logout.
+class _AuraSidebar extends StatelessWidget {
+  const _AuraSidebar({
+    required this.selectedPath,
     required this.unread,
     required this.userName,
-    required this.userRole,
-    required this.initials,
-    required this.compact,
+    required this.showAll,
     required this.onSelect,
     required this.onLogout,
   });
 
-  final List<_NavItem> items;
-  final int selectedIndex;
+  final String selectedPath;
   final int unread;
   final String userName;
-  final String userRole;
-  final String initials;
-  final bool compact;
-  final ValueChanged<_NavItem> onSelect;
+  final bool showAll;
+  final ValueChanged<String> onSelect;
   final VoidCallback onLogout;
+
+  // AURA screenshot palette
+  static const _bg = Color(0xFF0F1A17);
+  static const _activeBg = Color(0xFF1E2E28);
+  static const _activeIcon = Color(0xFF3DDB7A);
+  static const _iconIdle = Color(0xFFF0F4F2);
+  static const _label = Color(0xFF8B9A93);
+  static const _logout = Color(0xFFE07A7A);
+
+  bool _isSelected(String path) => selectedPath.startsWith(path);
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: compact ? null : 250,
-      color: RootsColors.navy,
-      padding: EdgeInsets.fromLTRB(compact ? 12 : 16, compact ? 16 : 28, compact ? 12 : 16, 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+      decoration: const BoxDecoration(
+        color: _bg,
+        borderRadius: BorderRadius.only(
+          topRight: Radius.circular(28),
+          bottomRight: Radius.circular(28),
+        ),
+      ),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(Icons.eco, color: RootsColors.leaf, size: 28),
-              const SizedBox(width: 10),
-              const Text(
-                'Roots',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 22,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.4,
-                ),
-              ),
-              if (compact) ...[
-                const Spacer(),
-                IconButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.close, color: Colors.white70, size: 20),
-                ),
-              ],
-            ],
-          ),
-          SizedBox(height: compact ? 20 : 36),
-          Expanded(
-            child: ListView.builder(
-              itemCount: items.length,
-              itemBuilder: (context, i) {
-                final d = items[i];
-                final selected = i == selectedIndex;
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
-                  child: Material(
-                    color: selected ? RootsColors.sidebarAccent : Colors.transparent,
-                    borderRadius: BorderRadius.circular(10),
-                    child: ListTile(
-                      dense: true,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      leading: Icon(
-                        selected ? d.selectedIcon : d.icon,
-                        color: selected ? RootsColors.leaf : const Color(0xFFB0C9DB),
-                        size: 22,
+              // Brand header
+              Row(
+                children: [
+                  Container(
+                    width: 46,
+                    height: 46,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF22C55E), Color(0xFF16A34A)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
                       ),
-                      title: Text(
-                        d.label,
-                        style: TextStyle(
-                          color: selected ? Colors.white : const Color(0xFFB0C9DB),
-                          fontWeight: FontWeight.w600,
-                          fontSize: 15,
+                    ),
+                    child: const Icon(Icons.eco, color: Colors.white, size: 26),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'ROOTS',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 22,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 1.2,
+                            height: 1.1,
+                          ),
                         ),
-                      ),
-                      onTap: () => onSelect(d),
+                        SizedBox(height: 2),
+                        Text(
+                          'Farm Manager',
+                          style: TextStyle(
+                            color: _label,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                );
-              },
-            ),
-          ),
-          if (!compact)
-            ListTile(
-              dense: true,
-              leading: Badge(
-                isLabelVisible: unread > 0,
-                label: Text('$unread'),
-                child: const Icon(Icons.notifications_outlined, color: Color(0xFFB0C9DB), size: 20),
+                ],
               ),
-              title: const Text(
-                'Alerts',
-                style: TextStyle(color: Color(0xFFB0C9DB), fontWeight: FontWeight.w600, fontSize: 14),
+              const SizedBox(height: 14),
+              Text(
+                'Welcome, $userName',
+                style: const TextStyle(
+                  color: Color(0xFFD5DDD8),
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
-              onTap: () => onSelect(const _NavItem('Alerts', Icons.notifications_outlined, Icons.notifications, '/alerts')),
-            ),
-          const Divider(color: Colors.white12),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              CircleAvatar(
-                backgroundColor: RootsColors.sidebarAccent,
-                child: Text(initials, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
-              ),
-              const SizedBox(width: 10),
+              const SizedBox(height: 14),
+              const Divider(color: Color(0xFF2A3531), height: 1),
+              const SizedBox(height: 14),
+
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: ListView(
+                  padding: EdgeInsets.zero,
                   children: [
-                    Text(userName, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13)),
-                    Text(
-                      userRole.isEmpty ? '' : '${userRole[0].toUpperCase()}${userRole.substring(1)}',
-                      style: const TextStyle(color: Color(0xFF8AAEC4), fontSize: 11),
+                    _tile(
+                      const _NavItem('Dashboard', Icons.grid_view_rounded, Icons.grid_view_rounded, '/dashboard'),
                     ),
+                    _section('MANAGEMENT'),
+                    _tile(const _NavItem('Livestock', Icons.pets_outlined, Icons.pets, '/livestock')),
+                    _tile(const _NavItem('Crops', Icons.grass_outlined, Icons.grass, '/crops')),
+                    _tile(const _NavItem('Inventory', Icons.inventory_2_outlined, Icons.inventory_2, '/inventory')),
+                    _tile(const _NavItem('Tasks', Icons.task_alt_outlined, Icons.task_alt, '/tasks')),
+                    _section('OPERATIONS'),
+                    _tile(const _NavItem('Equipment', Icons.agriculture_outlined, Icons.agriculture, '/equipment')),
+                    _tile(const _NavItem('Finance', Icons.payments_outlined, Icons.payments, '/finance')),
+                    if (showAll) ...[
+                      _tile(const _NavItem('Map', Icons.map_outlined, Icons.map, '/map')),
+                      _tile(const _NavItem('Reports', Icons.assessment_outlined, Icons.assessment, '/reports')),
+                      _tile(const _NavItem('Workers', Icons.groups_outlined, Icons.groups, '/workers')),
+                    ],
+                    _section('ACCOUNT'),
+                    _tile(
+                      const _NavItem('Alerts', Icons.notifications_outlined, Icons.notifications, '/alerts'),
+                      badge: unread,
+                    ),
+                    _tile(const _NavItem('Settings', Icons.settings_outlined, Icons.settings, '/settings')),
                   ],
                 ),
               ),
-              IconButton(
-                onPressed: onLogout,
-                icon: const Icon(Icons.logout, color: Color(0xFFB0C9DB), size: 18),
-                tooltip: 'Log out',
+
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: onLogout,
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                    child: Row(
+                      children: [
+                        Icon(Icons.logout_rounded, color: _logout, size: 22),
+                        SizedBox(width: 14),
+                        Text(
+                          'Logout',
+                          style: TextStyle(
+                            color: _logout,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
             ],
           ),
-        ],
+        ),
+      ),
+    );
+  }
+
+  Widget _section(String label) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 18, 12, 8),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: _label,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 1.4,
+        ),
+      ),
+    );
+  }
+
+  Widget _tile(_NavItem d, {int badge = 0}) {
+    final selected = _isSelected(d.path);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Material(
+        color: selected ? _activeBg : Colors.transparent,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () => onSelect(d.path),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            child: Row(
+              children: [
+                Icon(
+                  selected ? d.selectedIcon : d.icon,
+                  color: selected ? _activeIcon : _iconIdle,
+                  size: 22,
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Text(
+                    d.label,
+                    style: TextStyle(
+                      color: selected ? Colors.white : const Color(0xFFF2F5F3),
+                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                      fontSize: 15,
+                    ),
+                  ),
+                ),
+                if (badge > 0)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: RootsColors.red,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      '$badge',
+                      style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

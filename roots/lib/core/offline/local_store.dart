@@ -29,6 +29,11 @@ class LocalStore {
       HiveBoxes.finance,
       HiveBoxes.tasks,
       HiveBoxes.crops,
+      HiveBoxes.cropCatalog,
+      HiveBoxes.varieties,
+      HiveBoxes.fields,
+      HiveBoxes.treatments,
+      HiveBoxes.observations,
       HiveBoxes.alerts,
       HiveBoxes.users,
       HiveBoxes.farms,
@@ -89,8 +94,8 @@ class LocalStore {
 
   int get pendingSyncCount => box(HiveBoxes.syncQueue).length;
 
-  bool get seeded => prefs.getBool('seeded') ?? false;
-  Future<void> setSeeded() async => prefs.setBool('seeded', true);
+  bool get seeded => prefs.getBool('seeded_v2') ?? false;
+  Future<void> setSeeded() async => prefs.setBool('seeded_v2', true);
 
   String? get sessionUserId => prefs.getString('sessionUserId');
   Future<void> setSessionUserId(String? id) async {

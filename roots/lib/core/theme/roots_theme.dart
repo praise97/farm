@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-/// Roots design tokens — Material 3 + FarmSmart/Imali styling.
+/// Roots design tokens — Material 3 + AURA-style dark sidebar.
 class RootsColors {
-  static const navy = Color(0xFF0E1F2E);
-  static const navyDeep = Color(0xFF001B3D);
-  static const sidebarAccent = Color(0xFF1D3B4F);
+  static const navy = Color(0xFF0F1A17);
+  static const navyDeep = Color(0xFF0A1210);
+  static const sidebarAccent = Color(0xFF1E2E28);
   static const teal = Color(0xFF00C897);
   static const green = Color(0xFF2D9B5E);
   static const greenSoft = Color(0xFFEEF6F0);

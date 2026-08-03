@@ -313,59 +313,6 @@ class FarmAlert extends Equatable {
   List<Object?> get props => [id, type, read];
 }
 
-class CropPlot extends Equatable {
-  final String id;
-  final String farmId;
-  final String name;
-  final String cropType;
-  final double growthPercent;
-  final double? soilMoisture;
-  final String statusNote;
-  final DateTime plantedAt;
-  final DateTime? expectedHarvest;
-
-  const CropPlot({
-    required this.id,
-    required this.farmId,
-    required this.name,
-    required this.cropType,
-    required this.growthPercent,
-    this.soilMoisture,
-    required this.statusNote,
-    required this.plantedAt,
-    this.expectedHarvest,
-  });
-
-  Map<String, dynamic> toMap() => {
-        'id': id,
-        'farmId': farmId,
-        'name': name,
-        'cropType': cropType,
-        'growthPercent': growthPercent,
-        'soilMoisture': soilMoisture,
-        'statusNote': statusNote,
-        'plantedAt': plantedAt.toIso8601String(),
-        'expectedHarvest': expectedHarvest?.toIso8601String(),
-      };
-
-  factory CropPlot.fromMap(Map<String, dynamic> map) => CropPlot(
-        id: map['id'] as String,
-        farmId: map['farmId'] as String,
-        name: map['name'] as String,
-        cropType: map['cropType'] as String,
-        growthPercent: (map['growthPercent'] as num).toDouble(),
-        soilMoisture: (map['soilMoisture'] as num?)?.toDouble(),
-        statusNote: map['statusNote'] as String,
-        plantedAt: DateTime.parse(map['plantedAt'] as String),
-        expectedHarvest: map['expectedHarvest'] != null
-            ? DateTime.parse(map['expectedHarvest'] as String)
-            : null,
-      );
-
-  @override
-  List<Object?> get props => [id, name, growthPercent];
-}
-
 class MapPoint extends Equatable {
   final String id;
   final String farmId;

@@ -4,6 +4,7 @@ import '../../core/constants/app_constants.dart';
 import '../../core/constants/enums.dart';
 import '../../core/offline/local_store.dart';
 import '../../domain/entities/animal.dart';
+import '../../domain/entities/crop_entities.dart';
 import '../../domain/entities/equipment.dart';
 import '../../domain/entities/farm_user.dart';
 import '../../domain/entities/shared_entities.dart';
@@ -346,44 +347,127 @@ Future<void> seedDemoData() async {
     await store.putMap(HiveBoxes.finance, f.id, f.toMap());
   }
 
+  final catalog = [
+    CropCatalogItem(id: 'cat-maize', farmId: farmId, cropName: 'Maize', cropGroup: 'Cereal', daysToMaturity: 120, optimalSeason: 'Summer', marketPriceUsd: 385, useCategory: 'Grain'),
+    CropCatalogItem(id: 'cat-tobacco', farmId: farmId, cropName: 'Tobacco', cropGroup: 'Cash', daysToMaturity: 90, optimalSeason: 'Summer', marketPriceUsd: 4250, useCategory: 'Leaf'),
+    CropCatalogItem(id: 'cat-cotton', farmId: farmId, cropName: 'Cotton', cropGroup: 'Fibre', daysToMaturity: 150, optimalSeason: 'Summer', marketPriceUsd: 1020, useCategory: 'Fibre'),
+    CropCatalogItem(id: 'cat-tomatoes', farmId: farmId, cropName: 'Tomatoes', cropGroup: 'Vegetable', daysToMaturity: 80, optimalSeason: 'All', marketPriceUsd: 520, useCategory: 'Fresh'),
+  ];
+  for (final c in catalog) {
+    await store.putMap(HiveBoxes.cropCatalog, c.id, c.toMap());
+  }
+
+  final varieties = [
+    CropVariety(id: 'var-sc403', farmId: farmId, cropId: 'cat-maize', varietyName: 'SC 403', seedSource: 'SeedCo', daysToMaturity: 115),
+    CropVariety(id: 'var-sc513', farmId: farmId, cropId: 'cat-maize', varietyName: 'SC 513', seedSource: 'SeedCo', daysToMaturity: 125),
+    CropVariety(id: 'var-kutsaga', farmId: farmId, cropId: 'cat-tobacco', varietyName: 'Kutsaga', seedSource: 'Tobacco Research Board', daysToMaturity: 88),
+    CropVariety(id: 'var-heinz', farmId: farmId, cropId: 'cat-tomatoes', varietyName: 'Heinz', seedSource: 'SeedCo', daysToMaturity: 75),
+  ];
+  for (final v in varieties) {
+    await store.putMap(HiveBoxes.varieties, v.id, v.toMap());
+  }
+
+  final fields = [
+    FarmField(id: 'field-a', farmId: farmId, fieldName: 'Field A', sizeHa: 5.2, soilType: 'Sandy Loam', gpsLat: -17.824858, gpsLon: 31.053028, elevationM: 1450, climateZone: 'Subtropical'),
+    FarmField(id: 'field-b', farmId: farmId, fieldName: 'Field B', sizeHa: 3.8, soilType: 'Clay', gpsLat: -17.830000, gpsLon: 31.060000, elevationM: 1400, climateZone: 'Subtropical'),
+    FarmField(id: 'field-gh1', farmId: farmId, fieldName: 'Greenhouse 1', sizeHa: 0.5, soilType: 'Loam', gpsLat: -17.820000, gpsLon: 31.055000, elevationM: 1450, climateZone: 'Controlled'),
+  ];
+  for (final f in fields) {
+    await store.putMap(HiveBoxes.fields, f.id, f.toMap());
+  }
+
+  final plantedA = DateTime(2026, 6, 1);
+  final plantedB = DateTime(2026, 6, 15);
+  final plantedGh = DateTime(2026, 7, 1);
   final crops = [
     CropPlot(
       id: 'crop-001',
       farmId: farmId,
-      name: 'Corn — Field B',
-      cropType: 'Corn',
-      growthPercent: 94,
+      name: 'Maize — Field A',
+      cropType: 'Maize',
+      fieldId: 'field-a',
+      fieldName: 'Field A',
+      varietyId: 'var-sc403',
+      varietyName: 'SC 403',
+      growthPercent: CropPlot.growthFor(DateTime.now().difference(plantedA).inDays, 115),
       soilMoisture: 61,
-      statusNote: 'at 94% growth — needs close monitoring',
-      plantedAt: DateTime(2025, 11, 10),
-      expectedHarvest: DateTime(2026, 8, 15),
+      statusNote: 'Tasseling stage — needs close monitoring',
+      growthStage: CropPlot.stageFor(DateTime.now().difference(plantedA).inDays, 115),
+      plantedAt: plantedA,
+      expectedHarvest: DateTime(2026, 9, 20),
+      daysToMaturity: 115,
+      plantingDensity: 55000,
     ),
     CropPlot(
       id: 'crop-002',
       farmId: farmId,
-      name: 'Tomatoes — Greenhouse',
-      cropType: 'Tomatoes',
-      growthPercent: 78,
-      soilMoisture: 72,
-      statusNote: 'at 78% growth — flowering well',
-      plantedAt: DateTime(2026, 2, 1),
-      expectedHarvest: DateTime(2026, 7, 30),
+      name: 'Tobacco — Field B',
+      cropType: 'Tobacco',
+      fieldId: 'field-b',
+      fieldName: 'Field B',
+      varietyId: 'var-kutsaga',
+      varietyName: 'Kutsaga',
+      growthPercent: CropPlot.growthFor(DateTime.now().difference(plantedB).inDays, 88),
+      soilMoisture: 58,
+      statusNote: 'Topping soon',
+      growthStage: CropPlot.stageFor(DateTime.now().difference(plantedB).inDays, 88),
+      plantedAt: plantedB,
+      expectedHarvest: DateTime(2026, 9, 10),
+      daysToMaturity: 88,
+      plantingDensity: 25000,
     ),
     CropPlot(
       id: 'crop-003',
       farmId: farmId,
-      name: 'Wheat — Field A',
-      cropType: 'Wheat',
-      growthPercent: 88,
-      soilMoisture: 68,
-      statusNote: 'at 88% growth — healthy stand',
-      plantedAt: DateTime(2025, 12, 5),
-      expectedHarvest: DateTime(2026, 8, 1),
+      name: 'Tomatoes — Greenhouse 1',
+      cropType: 'Tomatoes',
+      fieldId: 'field-gh1',
+      fieldName: 'Greenhouse 1',
+      varietyId: 'var-heinz',
+      varietyName: 'Heinz',
+      growthPercent: CropPlot.growthFor(DateTime.now().difference(plantedGh).inDays, 75),
+      soilMoisture: 72,
+      statusNote: 'Fruit ripening',
+      growthStage: CropPlot.stageFor(DateTime.now().difference(plantedGh).inDays, 75),
+      plantedAt: plantedGh,
+      expectedHarvest: DateTime(2026, 9, 15),
+      daysToMaturity: 75,
+      plantingDensity: 30000,
     ),
   ];
   for (final c in crops) {
     await store.putMap(HiveBoxes.crops, c.id, c.toMap());
   }
+
+  await store.putMap(
+    HiveBoxes.treatments,
+    'tr-001',
+    CropTreatment(
+      id: 'tr-001',
+      farmId: farmId,
+      plantingId: 'crop-001',
+      treatmentType: TreatmentType.fertilizer,
+      productName: 'Urea',
+      applicationDate: DateTime(2026, 7, 10),
+      ratePerHa: 150,
+      costUsd: 75,
+      notes: 'Nitrogen application',
+    ).toMap(),
+  );
+
+  await store.putMap(
+    HiveBoxes.observations,
+    'obs-001',
+    CropObservation(
+      id: 'obs-001',
+      farmId: farmId,
+      plantingId: 'crop-001',
+      observationDate: DateTime(2026, 7, 20),
+      avgPlantHeightCm: 180,
+      colorRating: 4,
+      notes: 'Healthy',
+    ).toMap(),
+  );
 
   final tasks = [
     FarmTask(

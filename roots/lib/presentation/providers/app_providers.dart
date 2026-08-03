@@ -7,6 +7,7 @@ import '../../core/offline/sync_service.dart';
 import '../../core/permissions/permissions.dart';
 import '../../data/repositories/app_repository.dart';
 import '../../domain/entities/animal.dart';
+import '../../domain/entities/crop_entities.dart';
 import '../../domain/entities/equipment.dart';
 import '../../domain/entities/farm_user.dart';
 import '../../domain/entities/shared_entities.dart';
@@ -238,6 +239,20 @@ final cropsProvider = Provider<List<CropPlot>>((ref) {
   final user = ref.watch(authStateProvider).valueOrNull;
   if (user == null) return [];
   return ref.watch(appRepositoryProvider).crops(user.farmId);
+});
+
+final fieldsProvider = Provider<List<FarmField>>((ref) {
+  ref.watch(dataVersionProvider);
+  final user = ref.watch(authStateProvider).valueOrNull;
+  if (user == null) return [];
+  return ref.watch(appRepositoryProvider).fields(user.farmId);
+});
+
+final cropCatalogProvider = Provider<List<CropCatalogItem>>((ref) {
+  ref.watch(dataVersionProvider);
+  final user = ref.watch(authStateProvider).valueOrNull;
+  if (user == null) return [];
+  return ref.watch(appRepositoryProvider).cropCatalog(user.farmId);
 });
 
 final alertsProvider = Provider<List<FarmAlert>>((ref) {

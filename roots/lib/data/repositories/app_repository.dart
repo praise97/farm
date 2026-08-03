@@ -7,6 +7,7 @@ import '../../core/constants/enums.dart';
 import '../../core/offline/local_store.dart';
 import '../../core/offline/sync_service.dart';
 import '../../domain/entities/animal.dart';
+import '../../domain/entities/crop_entities.dart';
 import '../../domain/entities/equipment.dart';
 import '../../domain/entities/farm_user.dart';
 import '../../domain/entities/shared_entities.dart';
@@ -306,18 +307,122 @@ class AppRepository {
     return task;
   }
 
-  // ── Crops ─────────────────────────────────────────────────
+  // ── Crops (Firebase — partner MySQL schema ported) ────────
   List<CropPlot> crops(String farmId) => _store
       .getAllMaps(HiveBoxes.crops)
       .map(CropPlot.fromMap)
-      .where((c) => c.farmId == farmId)
-      .toList();
+      .where((c) => c.farmId == farmId && c.isActive)
+      .toList()
+    ..sort((a, b) => b.growthPercent.compareTo(a.growthPercent));
 
   Future<CropPlot> saveCrop(CropPlot crop) async {
-    await _store.putMap(HiveBoxes.crops, crop.id, crop.toMap());
-    await _store.enqueueSync({'op': 'upsertCrop', 'data': crop.toMap()});
-    await _triggerSync(crop.farmId);
-    return crop;
+    final maturity = crop.daysToMaturity ?? 120;
+    final days = crop.daysSincePlanting;
+    final enriched = crop.copyWith(
+      growthPercent: CropPlot.growthFor(days, maturity),
+      growthStage: CropPlot.stageFor(days, maturity),
+      statusNote: 'at ${CropPlot.growthFor(days, maturity).toStringAsFixed(0)}% — ${CropPlot.stageFor(days, maturity)}',
+    );
+    await _store.putMap(HiveBoxes.crops, enriched.id, enriched.toMap());
+    await _store.enqueueSync({'op': 'upsertCrop', 'data': enriched.toMap()});
+    await _triggerSync(enriched.farmId);
+    return enriched;
+  }
+
+  List<FarmField> fields(String farmId) => _store
+      .getAllMaps(HiveBoxes.fields)
+      .map(FarmField.fromMap)
+      .where((f) => f.farmId == farmId)
+      .toList()
+    ..sort((a, b) => a.fieldName.compareTo(b.fieldName));
+
+  Future<FarmField> saveField(FarmField field) async {
+    await _store.putMap(HiveBoxes.fields, field.id, field.toMap());
+    await _store.enqueueSync({'op': 'upsertField', 'data': field.toMap()});
+    await _triggerSync(field.farmId);
+    return field;
+  }
+
+  List<CropCatalogItem> cropCatalog(String farmId) => _store
+      .getAllMaps(HiveBoxes.cropCatalog)
+      .map(CropCatalogItem.fromMap)
+      .where((c) => c.farmId == farmId)
+      .toList()
+    ..sort((a, b) => a.cropName.compareTo(b.cropName));
+
+  Future<CropCatalogItem> saveCropCatalog(CropCatalogItem item) async {
+    await _store.putMap(HiveBoxes.cropCatalog, item.id, item.toMap());
+    await _store.enqueueSync({'op': 'upsertCropCatalog', 'data': item.toMap()});
+    await _triggerSync(item.farmId);
+    return item;
+  }
+
+  List<CropVariety> varieties(String farmId) => _store
+      .getAllMaps(HiveBoxes.varieties)
+      .map(CropVariety.fromMap)
+      .where((v) => v.farmId == farmId)
+      .toList();
+
+  Future<CropVariety> saveVariety(CropVariety variety) async {
+    await _store.putMap(HiveBoxes.varieties, variety.id, variety.toMap());
+    await _store.enqueueSync({'op': 'upsertVariety', 'data': variety.toMap()});
+    await _triggerSync(variety.farmId);
+    return variety;
+  }
+
+  List<CropTreatment> treatments(String farmId, {String? plantingId}) {
+    final list = _store
+        .getAllMaps(HiveBoxes.treatments)
+        .map(CropTreatment.fromMap)
+        .where((t) => t.farmId == farmId)
+        .where((t) => plantingId == null || t.plantingId == plantingId)
+        .toList()
+      ..sort((a, b) => b.applicationDate.compareTo(a.applicationDate));
+    return list;
+  }
+
+  Future<CropTreatment> saveTreatment(CropTreatment treatment) async {
+    await _store.putMap(HiveBoxes.treatments, treatment.id, treatment.toMap());
+    await _store.enqueueSync({'op': 'upsertTreatment', 'data': treatment.toMap()});
+    await _triggerSync(treatment.farmId);
+    return treatment;
+  }
+
+  List<CropObservation> observations(String farmId, {String? plantingId}) {
+    final list = _store
+        .getAllMaps(HiveBoxes.observations)
+        .map(CropObservation.fromMap)
+        .where((o) => o.farmId == farmId)
+        .where((o) => plantingId == null || o.plantingId == plantingId)
+        .toList()
+      ..sort((a, b) => b.observationDate.compareTo(a.observationDate));
+    return list;
+  }
+
+  Future<CropObservation> saveObservation(CropObservation observation) async {
+    await _store.putMap(HiveBoxes.observations, observation.id, observation.toMap());
+    await _store.enqueueSync({'op': 'upsertObservation', 'data': observation.toMap()});
+    if (observation.pestPresence || observation.diseasePresence) {
+      final planting = _store.getMap(HiveBoxes.crops, observation.plantingId);
+      if (planting != null) {
+        final crop = CropPlot.fromMap(planting).copyWith(
+          pestPresence: observation.pestPresence || (planting['pestPresence'] as bool? ?? false),
+          diseasePresence: observation.diseasePresence || (planting['diseasePresence'] as bool? ?? false),
+        );
+        await saveCrop(crop);
+        await addAlert(FarmAlert(
+          id: newId(),
+          farmId: observation.farmId,
+          type: AlertType.other,
+          title: observation.pestPresence ? 'Pest alert' : 'Disease alert',
+          message: '${crop.name}: ${observation.notes ?? 'Needs attention'}',
+          createdAt: DateTime.now(),
+          relatedId: crop.id,
+        ));
+      }
+    }
+    await _triggerSync(observation.farmId);
+    return observation;
   }
 
   // ── Alerts ────────────────────────────────────────────────

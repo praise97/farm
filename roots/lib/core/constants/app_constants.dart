@@ -18,6 +18,11 @@ class HiveBoxes {
   static const finance = 'finance';
   static const tasks = 'tasks';
   static const crops = 'crops';
+  static const cropCatalog = 'crop_catalog';
+  static const varieties = 'varieties';
+  static const fields = 'fields';
+  static const treatments = 'treatments';
+  static const observations = 'observations';
   static const alerts = 'alerts';
   static const users = 'users';
   static const farms = 'farms';
@@ -34,6 +39,11 @@ class FirestorePaths {
   static String finance(String farmId) => 'farms/$farmId/finance';
   static String tasks(String farmId) => 'farms/$farmId/tasks';
   static String crops(String farmId) => 'farms/$farmId/crops';
+  static String cropCatalog(String farmId) => 'farms/$farmId/cropCatalog';
+  static String varieties(String farmId) => 'farms/$farmId/varieties';
+  static String fields(String farmId) => 'farms/$farmId/fields';
+  static String treatments(String farmId) => 'farms/$farmId/treatments';
+  static String observations(String farmId) => 'farms/$farmId/observations';
   static String alerts(String farmId) => 'farms/$farmId/alerts';
   static String workers(String farmId) => 'farms/$farmId/workers';
   static String mapPoints(String farmId) => 'farms/$farmId/mapPoints';
