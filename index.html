@@ -1,0 +1,550 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FarmSmartPro — Full Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family: "Inter", sans-serif; background: #f2f6fc; color: #1a2a3a; display: flex; min-height: 100vh; }
+    .sidebar { width: 250px; background: #0e1f2e; color: #b0c9db; padding: 28px 20px; display: flex; flex-direction: column; flex-shrink: 0; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
+    .sidebar .logo { display: flex; align-items: center; gap: 10px; font-size: 22px; font-weight: 700; color: #fff; margin-bottom: 42px; }
+    .sidebar .logo i { color: #6fcf97; font-size: 26px; }
+    .sidebar nav { display: flex; flex-direction: column; gap: 2px; flex: 1; }
+    .sidebar nav a { display: flex; align-items: center; gap: 14px; padding: 12px 16px; border-radius: 10px; font-size: 14px; font-weight: 500; color: #b0c9db; text-decoration: none; transition: all 0.2s; cursor: pointer; }
+    .sidebar nav a i { width: 20px; text-align: center; font-size: 16px; }
+    .sidebar nav a:hover { background: rgba(255,255,255,0.06); color: #fff; }
+    .sidebar nav a.active { background: #1d3b4f; color: #fff; }
+    .sidebar nav a.active i { color: #6fcf97; }
+    .sidebar .user-section { margin-top: auto; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.07); display: flex; align-items: center; gap: 12px; }
+    .sidebar .user-section .avatar { width: 40px; height: 40px; border-radius: 50%; background: #2d4b5e; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 16px; color: #fff; }
+    .sidebar .user-section .user-info { flex: 1; }
+    .sidebar .user-section .user-info .name { font-weight: 600; color: #fff; font-size: 14px; }
+    .sidebar .user-section .user-info .role { font-size: 12px; color: #8aaec4; }
+    .sidebar .user-section .logout { color: #8aaec4; font-size: 16px; transition: 0.2s; cursor: pointer; }
+    .sidebar .user-section .logout:hover { color: #fff; }
+    .main { flex: 1; padding: 28px 36px 40px; min-width: 0; }
+    .dashboard-section { display: none; }
+    .dashboard-section.active { display: block; }
+    .header { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px; margin-bottom: 28px; }
+    .header-left h1 { font-size: 26px; font-weight: 700; color: #0e1f2e; }
+    .header-left .sub { font-size: 14px; color: #5e7a8f; margin-top: 4px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .header-left .sub .badge { background: #e6f7ee; color: #1f7b4a; font-weight: 600; font-size: 12px; padding: 4px 12px; border-radius: 40px; display: inline-flex; align-items: center; gap: 6px; }
+    .header-left .sub .ai-label { background: #eef2f7; padding: 4px 14px; border-radius: 40px; font-size: 12px; font-weight: 500; color: #1a2a3a; }
+    .header-left .sub .ai-label i { color: #2d9b5e; margin-right: 4px; }
+    .header-right { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+    .header-right .date { font-size: 14px; color: #5e7a8f; background: #fff; padding: 6px 16px; border-radius: 40px; box-shadow: 0 1px 4px rgba(0,0,0,0.04); border: 1px solid #edf2f7; }
+    .header-right .add-btn { background: #2d9b5e; color: #fff; border: none; padding: 8px 18px; border-radius: 40px; font-weight: 600; font-size: 14px; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: background 0.2s; }
+    .header-right .add-btn:hover { background: #1f7b4a; }
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 18px; margin-bottom: 28px; }
+    .stat-card { background: #fff; border-radius: 16px; padding: 20px 22px; border: 1px solid #e9eef3; transition: 0.2s; }
+    .stat-card:hover { border-color: #d0dfe9; }
+    .stat-card .label { font-size: 13px; font-weight: 500; color: #5e7a8f; display: flex; align-items: center; gap: 8px; }
+    .stat-card .label i { color: #2d9b5e; }
+    .stat-card .value { font-size: 30px; font-weight: 700; color: #0e1f2e; margin-top: 4px; }
+    .stat-card .value .unit { font-size: 16px; font-weight: 500; color: #5e7a8f; margin-left: 2px; }
+    .stat-card .change { font-size: 13px; font-weight: 500; margin-top: 6px; display: inline-flex; align-items: center; gap: 4px; background: #f4f7fb; padding: 2px 12px; border-radius: 40px; }
+    .stat-card .change.positive { color: #1f7b4a; }
+    .stat-card .change.negative { color: #c73b3b; }
+    .stat-card .feels-like { font-size: 13px; color: #5e7a8f; margin-top: 2px; }
+    .stat-card .view-all { font-size: 13px; font-weight: 500; color: #2d9b5e; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; margin-top: 4px; cursor: pointer; }
+    .two-col { display: grid; grid-template-columns: 1.5fr 1fr; gap: 24px; margin-bottom: 28px; }
+    @media (max-width: 1000px) { .two-col { grid-template-columns: 1fr; } }
+    .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .section-header h2 { font-size: 18px; font-weight: 600; color: #0e1f2e; display: flex; align-items: center; gap: 8px; }
+    .section-header h2 .live-badge { font-size: 10px; font-weight: 700; text-transform: uppercase; color: #c73b3b; background: #fee9e9; padding: 2px 10px; border-radius: 40px; letter-spacing: 0.5px; }
+    .section-header .link { font-size: 13px; font-weight: 500; color: #2d9b5e; text-decoration: none; display: flex; align-items: center; gap: 4px; cursor: pointer; }
+    .crop-list { display: flex; flex-direction: column; gap: 10px; }
+    .crop-item { background: #fff; border-radius: 14px; padding: 14px 18px; border: 1px solid #e9eef3; display: flex; align-items: center; gap: 14px; transition: 0.2s; position: relative; }
+    .crop-item:hover { border-color: #d0dfe9; }
+    .crop-item .icon { width: 40px; height: 40px; border-radius: 12px; background: #eef6f0; display: flex; align-items: center; justify-content: center; font-size: 18px; color: #2d9b5e; flex-shrink: 0; }
+    .crop-item .info { flex: 1; min-width: 0; }
+    .crop-item .info .name { font-weight: 600; font-size: 15px; color: #0e1f2e; }
+    .crop-item .info .detail { font-size: 13px; color: #5e7a8f; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .crop-item .info .meta { font-size: 12px; color: #8aaec4; margin-top: 2px; display: flex; gap: 12px; flex-wrap: wrap; }
+    .crop-item .progress-wrap { display: flex; align-items: center; gap: 12px; }
+    .crop-item .progress-bar { width: 100px; height: 6px; background: #e9eef3; border-radius: 10px; overflow: hidden; }
+    .crop-item .progress-bar .fill { height: 100%; border-radius: 10px; background: #2d9b5e; }
+    .crop-item .progress-label { font-weight: 600; font-size: 14px; color: #0e1f2e; min-width: 42px; text-align: right; }
+    .crop-item .delete-btn { background: transparent; border: none; color: #c73b3b; cursor: pointer; font-size: 16px; padding: 4px 6px; border-radius: 6px; transition: background 0.2s; }
+    .crop-item .delete-btn:hover { background: #fee9e9; }
+    .crop-item.overall { background: #f8fafc; border-style: dashed; }
+    .crop-item.overall .icon { background: #e9eef3; color: #8aaec4; }
+    .crop-item.overall .info .name { color: #5e7a8f; }
+    .crop-item.overall .progress-label { color: #5e7a8f; }
+    .crop-item.overall .progress-bar .fill { background: #6f8fa0; }
+    .weather-card { background: #fff; border-radius: 16px; padding: 20px 22px; border: 1px solid #e9eef3; margin-bottom: 20px; }
+    .weather-card .today { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+    .weather-card .today .temp { font-size: 36px; font-weight: 700; color: #0e1f2e; }
+    .weather-card .today .weather-condition { font-size: 14px; font-weight: 500; color: #1a2a3a; }
+    .weather-card .today .icon { font-size: 36px; color: #f5b342; margin-left: auto; }
+    .weather-card .update-time { font-size: 11px; color: #8aaec4; margin-top: 4px; }
+    .weather-card .climate-note { font-size: 13px; color: #d68a3c; margin-top: 8px; border-top: 1px solid #e9eef3; padding-top: 10px; display: flex; align-items: center; gap: 8px; }
+    .forecast { display: grid; grid-template-columns: repeat(5,1fr); gap: 6px; margin-top: 10px; }
+    .forecast .day { text-align: center; padding: 8px 0; border-radius: 10px; background: #f8fafc; }
+    .forecast .day .name { font-size: 12px; font-weight: 500; color: #5e7a8f; }
+    .forecast .day .icon { font-size: 20px; margin: 4px 0; }
+    .forecast .day .high { font-weight: 600; font-size: 15px; color: #0e1f2e; }
+    .forecast .day .low { font-size: 13px; color: #8aaec4; }
+    .insights-card { background: #fff; border-radius: 16px; padding: 20px 22px; border: 1px solid #e9eef3; margin-bottom: 20px; }
+    .insights-card .header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+    .insights-card .header-row h3 { font-size: 16px; font-weight: 600; color: #0e1f2e; display: flex; align-items: center; gap: 6px; }
+    .insights-card .header-row h3 i { color: #f5b342; }
+    .insights-card .header-row .badge-count { background: #eef6f0; color: #1f7b4a; font-size: 12px; font-weight: 600; padding: 2px 12px; border-radius: 40px; }
+    .insight-item { display: flex; gap: 12px; padding: 12px 0; border-bottom: 1px solid #f0f4f9; }
+    .insight-item:last-child { border-bottom: 0; padding-bottom: 0; }
+    .insight-item .icon { width: 34px; height: 34px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 14px; }
+    .insight-item .icon.warning { background: #fef3e9; color: #d68a3c; }
+    .insight-item .icon.danger { background: #fee9e9; color: #c73b3b; }
+    .insight-item .icon.info { background: #e6f0fa; color: #2a7ab0; }
+    .insight-item .content { flex: 1; }
+    .insight-item .content .title { font-weight: 600; font-size: 14px; color: #0e1f2e; }
+    .insight-item .content .desc { font-size: 13px; color: #5e7a8f; margin-top: 1px; }
+    .insight-item .content .meta { font-size: 12px; color: #8aaec4; margin-top: 4px; display: flex; align-items: center; gap: 12px; }
+    .alerts-section { margin-top: 4px; }
+    .alerts-container { background: #fff; border-radius: 16px; border: 1px solid #e9eef3; padding: 6px 22px 10px; }
+    .alert-item { display: flex; gap: 12px; padding: 12px 0; border-bottom: 1px solid #f0f4f9; }
+    .alert-item:last-child { border-bottom: 0; padding-bottom: 0; }
+    .alert-item .icon { width: 34px; height: 34px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 14px; }
+    .alert-item .icon.warning { background: #fef3e9; color: #d68a3c; }
+    .alert-item .icon.danger { background: #fee9e9; color: #c73b3b; }
+    .alert-item .icon.info { background: #e6f0fa; color: #2a7ab0; }
+    .alert-item .content { flex: 1; }
+    .alert-item .content .title { font-weight: 600; font-size: 14px; color: #0e1f2e; }
+    .alert-item .content .desc { font-size: 13px; color: #5e7a8f; margin-top: 1px; }
+    .alert-item .content .time { font-size: 12px; color: #8aaec4; margin-top: 4px; display: flex; align-items: center; gap: 6px; }
+    .price-ticker { background: #fff; border-radius: 16px; border: 1px solid #e9eef3; padding: 16px 20px; margin-top: 20px; display: flex; flex-wrap: wrap; gap: 20px; align-items: center; }
+    .price-item { display: flex; align-items: baseline; gap: 8px; }
+    .price-item .crop { font-weight: 500; color: #1a2a3a; }
+    .price-item .price { font-weight: 700; font-size: 18px; color: #0e1f2e; }
+    .price-item .change { font-size: 13px; font-weight: 500; }
+    .price-item .change.up { color: #1f7b4a; }
+    .price-item .change.down { color: #c73b3b; }
+    .table-container { background: #fff; border-radius: 16px; border: 1px solid #e9eef3; padding: 16px 20px; overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th { text-align: left; padding: 10px 8px; font-weight: 600; color: #5e7a8f; border-bottom: 2px solid #e9eef3; }
+    td { padding: 10px 8px; border-bottom: 1px solid #f0f4f9; }
+    tr:last-child td { border-bottom: none; }
+    .status-badge { padding: 4px 12px; border-radius: 40px; font-weight: 600; font-size: 12px; }
+    .status-badge.operational { background: #e6f7ee; color: #1f7b4a; }
+    .status-badge.maintenance { background: #fef3e9; color: #d68a3c; }
+    .status-badge.out-of-order { background: #fee9e9; color: #c73b3b; }
+    .role-badge { padding: 4px 12px; border-radius: 40px; font-weight: 500; font-size: 12px; background: #eef2f7; color: #1a2a3a; }
+    .role-badge.admin { background: #e6f0fa; color: #2a7ab0; }
+    .role-badge.manager { background: #eef6f0; color: #1f7b4a; }
+    .role-badge.operator { background: #fef3e9; color: #d68a3c; }
+    #map { height: 400px; border-radius: 16px; border: 1px solid #e9eef3; margin-top: 12px; }
+    .roster-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px,1fr)); gap: 16px; margin-top: 16px; }
+    .roster-day { background: #fff; border-radius: 14px; border: 1px solid #e9eef3; padding: 14px 16px; }
+    .roster-day .day-title { font-weight: 600; font-size: 16px; color: #0e1f2e; margin-bottom: 8px; }
+    .roster-task { font-size: 13px; color: #5e7a8f; padding: 4px 0; border-bottom: 1px solid #f0f4f9; display: flex; justify-content: space-between; }
+    .roster-task:last-child { border-bottom: none; }
+    .roster-task .assigned { font-weight: 500; color: #1a2a3a; }
+    .finance-summary { background: #fff; border-radius: 16px; padding: 20px 22px; border: 1px solid #e9eef3; margin-bottom: 20px; }
+    .finance-summary .conclusion { font-size: 15px; font-weight: 600; padding: 12px 16px; border-radius: 10px; margin-top: 12px; }
+    .conclusion.green { background: #e6f7ee; color: #1f7b4a; }
+    .conclusion.yellow { background: #fef3e9; color: #d68a3c; }
+    .conclusion.red { background: #fee9e9; color: #c73b3b; }
+    .chart-container { background: #fff; border-radius: 16px; border: 1px solid #e9eef3; padding: 20px; margin: 20px 0; }
+    .exchange-rates { background: #fff; border-radius: 16px; border: 1px solid #e9eef3; padding: 16px 20px; margin-top: 20px; display: flex; flex-wrap: wrap; gap: 20px; align-items: center; }
+    .rate-item { display: flex; align-items: baseline; gap: 6px; }
+    .rate-item .currency { font-weight: 600; color: #0e1f2e; }
+    .rate-item .rate { font-weight: 700; font-size: 16px; color: #2a7ab0; }
+    .modal-overlay { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.4); backdrop-filter: blur(3px); justify-content: center; align-items: center; z-index: 1000; }
+    .modal-overlay.active { display: flex; }
+    .modal { background: #fff; border-radius: 24px; padding: 32px; max-width: 500px; width: 90%; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.2); }
+    .modal h2 { font-size: 24px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
+    .modal h2 i { color: #2d9b5e; }
+    .modal .close { margin-left: auto; background: none; border: none; font-size: 24px; color: #8aaec4; cursor: pointer; }
+    .modal .close:hover { color: #c73b3b; }
+    .modal label { font-weight: 500; display: block; margin-top: 14px; font-size: 14px; }
+    .modal input, .modal select, .modal textarea { width: 100%; padding: 10px 14px; border: 1px solid #d0dfe9; border-radius: 10px; font-size: 14px; margin-top: 4px; font-family: inherit; }
+    .modal input:focus, .modal select:focus, .modal textarea:focus { outline: 2px solid #2d9b5e; border-color: transparent; }
+    .modal .btn-submit { margin-top: 20px; background: #2d9b5e; color: #fff; border: none; padding: 12px; border-radius: 40px; font-weight: 600; font-size: 16px; width: 100%; cursor: pointer; transition: background 0.2s; }
+    .modal .btn-submit:hover { background: #1f7b4a; }
+    .modal .btn-cancel { background: #eef2f7; color: #1a2a3a; border: none; padding: 10px; border-radius: 40px; font-weight: 500; font-size: 14px; width: 100%; cursor: pointer; margin-top: 8px; }
+    .modal .btn-cancel:hover { background: #dce4ed; }
+    @media (max-width: 768px) {
+      .sidebar { width: 70px; padding: 20px 12px; }
+      .sidebar .logo span, .sidebar nav a span, .sidebar .user-section .user-info, .sidebar .user-section .logout { display: none; }
+      .sidebar nav a { justify-content: center; padding: 12px; }
+      .sidebar nav a i { font-size: 20px; }
+      .main { padding: 20px 16px; }
+      .stats { grid-template-columns: 1fr 1fr; }
+      .header-left h1 { font-size: 22px; }
+    }
+    @media (max-width: 480px) {
+      .stats { grid-template-columns: 1fr; }
+      .header { flex-direction: column; align-items: stretch; }
+      .header-right { justify-content: space-between; }
+    }
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: #eef2f6; }
+    ::-webkit-scrollbar-thumb { background: #b6cddd; border-radius: 10px; }
+  </style>
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="logo"><i class="fas fa-leaf"></i><span>FarmSmartPro</span></div>
+    <nav>
+      <a href="#" class="active" data-section="crops"><i class="fas fa-th-large"></i><span>Crops</span></a>
+      <a href="#" data-section="equipment"><i class="fas fa-tractor"></i><span>Equipment</span></a>
+      <a href="#" data-section="users"><i class="fas fa-users"></i><span>User Accounts</span></a>
+      <a href="#" data-section="map"><i class="fas fa-map-marked-alt"></i><span>Map &amp; Weather</span></a>
+      <a href="#" data-section="roster"><i class="fas fa-clipboard-list"></i><span>Duty Roster</span></a>
+      <a href="#" data-section="finance"><i class="fas fa-coins"></i><span>Finance</span></a>
+    </nav>
+    <div class="user-section">
+      <div class="avatar">TF</div>
+      <div class="user-info"><div class="name">Tendai Farmer</div><div class="role">Farm Manager</div></div>
+      <div class="logout"><i class="fas fa-sign-out-alt"></i></div>
+    </div>
+  </aside>
+
+  <main class="main">
+
+    <!-- CROPS -->
+    <section id="section-crops" class="dashboard-section active">
+      <div class="header">
+        <div class="header-left"><h1>Zimbabwe Crop Dashboard</h1><div class="sub"><span class="badge"><i class="fas fa-circle" style="font-size:6px;color:#2d9b5e;"></i> AI monitoring active</span><span class="ai-label"><i class="fas fa-microchip"></i> AI farm control center</span><span style="color:#5e7a8f;">• Real-time insights</span></div></div>
+        <div class="header-right"><span class="date"><i class="far fa-calendar-alt"></i> <span id="currentDate"></span></span><button class="add-btn" id="addCropBtn"><i class="fas fa-plus"></i> Add Crop</button></div>
+      </div>
+      <div class="stats">
+        <div class="stat-card"><div class="label"><i class="fas fa-th-large"></i> Active Crop Plots</div><div class="value" id="plotCount">0</div><span class="change positive" id="plotChange"><i class="fas fa-arrow-up"></i> 0</span></div>
+        <div class="stat-card"><div class="label"><i class="fas fa-tint" style="color:#2a7ab0;"></i> Avg Soil Moisture</div><div class="value" id="avgMoisture">--<span class="unit">%</span></div><span class="change negative" id="moistureChange"><i class="fas fa-arrow-down"></i> 0%</span></div>
+        <div class="stat-card"><div class="label"><i class="fas fa-thermometer-half" style="color:#d68a3c;"></i> Current Temp</div><div class="value" id="currentTempDisplay">--<span class="unit">°C</span></div><div class="feels-like" id="feelsLikeDisplay">Feels like --°C</div></div>
+        <div class="stat-card" style="background:#f6fbf8;border-color:#d4e8dc;"><div class="label"><i class="fas fa-bell" style="color:#d68a3c;"></i> Smart Alerts</div><div class="value" style="font-size:28px;" id="alertCount">0</div><a href="#" class="view-all" id="viewAlertsLink">View all alerts <i class="fas fa-arrow-right"></i></a></div>
+      </div>
+      <div class="two-col">
+        <div>
+          <div class="section-header"><h2>My Crop Growth <span class="live-badge"><i class="fas fa-circle" style="font-size:6px;margin-right:4px;"></i> LIVE</span></h2><a href="#" class="link" id="viewAllCropsLink">View All <i class="fas fa-arrow-right"></i></a></div>
+          <div class="crop-list" id="cropList">
+            <div class="crop-item overall" id="overallCrop"><div class="icon"><i class="fas fa-chart-simple"></i></div><div class="info"><div class="name">Overall Field Health</div><div class="detail">Average across all plots</div></div><div class="progress-wrap"><div class="progress-bar"><div class="fill" style="width:0%;background:#6f8fa0;"></div></div><span class="progress-label" id="overallPercent">0%</span></div></div>
+          </div>
+          <div class="price-ticker" id="priceTicker"></div>
+        </div>
+        <div>
+          <div class="weather-card">
+            <div class="today"><div><div class="temp" id="weatherTemp">--°</div><div class="weather-condition" id="weatherCondition">Loading...</div><div class="feels-like" id="weatherFeelsLike">Feels like --°</div><div class="update-time" id="weatherUpdateTime">Updating...</div></div><div class="icon" id="weatherIcon"><i class="fas fa-spinner fa-spin"></i></div></div>
+            <div class="forecast" id="forecastContainer"></div>
+            <div class="climate-note"><i class="fas fa-exclamation-triangle"></i><span id="climateMessage">Comparing current weather to historical averages...</span></div>
+          </div>
+          <div class="insights-card"><div class="header-row"><h3><i class="fas fa-earth-africa"></i> Soil Health</h3><span class="badge-count" id="soilActionCount">0</span></div><div id="soilInsightsList"><div class="insight-item"><div class="icon info"><i class="fas fa-check-circle"></i></div><div class="content"><div class="title">No soil alerts</div><div class="desc">Add crops to get recommendations.</div><div class="meta"><i class="far fa-clock"></i> Now</div></div></div></div></div>
+          <div class="insights-card"><div class="header-row"><h3><i class="fas fa-bug"></i> Pest &amp; Disease</h3><span class="badge-count" id="pestAlertCount">0</span></div><div id="pestInsightsList"><div class="insight-item"><div class="icon info"><i class="fas fa-check-circle"></i></div><div class="content"><div class="title">No pest alerts</div><div class="desc">Your crops are currently safe.</div><div class="meta"><i class="far fa-clock"></i> Now</div></div></div></div></div>
+        </div>
+      </div>
+      <div class="alerts-section"><div class="section-header"><h2><i class="fas fa-bell" style="color:#d68a3c;"></i> Smart Alerts</h2><a href="#" class="link" id="viewAllAlertsLink">View All <i class="fas fa-arrow-right"></i></a></div><div class="alerts-container" id="alertsContainer"><div class="alert-item"><div class="icon info"><i class="fas fa-info-circle"></i></div><div class="content"><div class="title">No active alerts</div><div class="desc">Add crops to receive alerts.</div><div class="time"><i class="far fa-clock"></i> Now</div></div></div></div></div>
+    </section>
+
+    <!-- EQUIPMENT -->
+    <section id="section-equipment" class="dashboard-section">
+      <div class="header"><div class="header-left"><h1>Equipment Fleet</h1><div class="sub"><span class="ai-label"><i class="fas fa-microchip"></i> Maintenance AI</span><span style="color:#5e7a8f;">• Real-time status &amp; service alerts</span></div></div><div class="header-right"><button class="add-btn" id="addEquipmentBtn"><i class="fas fa-plus"></i> Add Equipment</button></div></div>
+      <div class="stats"><div class="stat-card"><div class="label"><i class="fas fa-check-circle" style="color:#1f7b4a;"></i> Operational</div><div class="value" id="eqOperational">0</div></div><div class="stat-card"><div class="label"><i class="fas fa-tools" style="color:#d68a3c;"></i> Maintenance</div><div class="value" id="eqMaintenance">0</div></div><div class="stat-card"><div class="label"><i class="fas fa-exclamation-triangle" style="color:#c73b3b;"></i> Out of Order</div><div class="value" id="eqOutOfOrder">0</div></div></div>
+      <div class="table-container"><table><thead><tr><th>Name</th><th>Type</th><th>Status</th><th>Last Service</th><th>Next Service Due</th><th></th></tr></thead><tbody id="equipmentTableBody"></tbody></table></div>
+    </section>
+
+    <!-- USERS -->
+    <section id="section-users" class="dashboard-section">
+      <div class="header"><div class="header-left"><h1>User Accounts</h1><div class="sub"><span class="ai-label"><i class="fas fa-user-shield"></i> Role Management</span></div></div><div class="header-right"><button class="add-btn" id="addUserBtn"><i class="fas fa-plus"></i> Add User</button></div></div>
+      <div class="table-container"><table><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Farm Access</th><th></th></tr></thead><tbody id="userTableBody"></tbody></table></div>
+    </section>
+
+    <!-- MAP -->
+    <section id="section-map" class="dashboard-section">
+      <div class="header"><div class="header-left"><h1>Map &amp; Weather</h1><div class="sub"><i class="fas fa-map-pin" style="color:#2a7ab0;"></i> Your farm location with live weather overlay</div></div></div>
+      <div id="map"></div>
+      <div style="margin-top:16px;display:flex;gap:20px;flex-wrap:wrap;">
+        <div style="background:#fff;border-radius:16px;padding:16px 20px;border:1px solid #e9eef3;flex:1;min-width:200px;"><div style="font-weight:600;">Current Weather</div><div id="mapWeatherTemp" style="font-size:28px;font-weight:700;">--°C</div><div id="mapWeatherDesc">Loading...</div></div>
+        <div style="background:#fff;border-radius:16px;padding:16px 20px;border:1px solid #e9eef3;flex:1;min-width:200px;"><div style="font-weight:600;">Rainfall (last 24h)</div><div id="mapRainfall" style="font-size:28px;font-weight:700;">-- mm</div><div id="mapRainfallStatus">No data</div></div>
+      </div>
+    </section>
+
+    <!-- ROSTER -->
+    <section id="section-roster" class="dashboard-section">
+      <div class="header"><div class="header-left"><h1>Duty Roster</h1><div class="sub"><i class="fas fa-calendar-alt" style="color:#2d9b5e;"></i> Weekly task assignments</div></div><div class="header-right"><button class="add-btn" id="addTaskBtn"><i class="fas fa-plus"></i> Add Task</button></div></div>
+      <div class="roster-grid" id="rosterGrid"></div>
+    </section>
+
+    <!-- FINANCE -->
+    <section id="section-finance" class="dashboard-section">
+      <div class="header">
+        <div class="header-left"><h1>Farm Finance</h1><div class="sub"><i class="fas fa-wallet" style="color:#2d9b5e;"></i> Budget, expenses &amp; live exchange rates</div></div>
+        <div class="header-right">
+          <button class="add-btn" id="addExpenseBtn"><i class="fas fa-plus"></i> Add Expense</button>
+          <button class="add-btn" id="setBudgetBtn" style="background:#2a7ab0;"><i class="fas fa-edit"></i> Set Budget</button>
+        </div>
+      </div>
+      <div class="stats">
+        <div class="stat-card"><div class="label"><i class="fas fa-coins" style="color:#2d9b5e;"></i> Total Budget</div><div class="value" id="totalBudget">$0</div></div>
+        <div class="stat-card"><div class="label"><i class="fas fa-receipt" style="color:#d68a3c;"></i> Total Expenses</div><div class="value" id="totalExpenses">$0</div></div>
+        <div class="stat-card"><div class="label"><i class="fas fa-piggy-bank" style="color:#2a7ab0;"></i> Remaining</div><div class="value" id="remainingBudget">$0</div></div>
+        <div class="stat-card"><div class="label"><i class="fas fa-list-ul"></i> Expense Entries</div><div class="value" id="expenseCount">0</div></div>
+      </div>
+      <div class="finance-summary"><div style="font-weight:600;font-size:18px;margin-bottom:8px;">Smart Budget Analysis</div><div id="conclusionBox" class="conclusion green">Your expenses are well within budget.</div></div>
+      <div class="chart-container"><div style="font-weight:600;margin-bottom:12px;">Expense Trend (Cumulative)</div><canvas id="expenseChart" height="120"></canvas></div>
+      <div class="table-container" style="margin-top:20px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;"><span style="font-weight:600;">Recent Expenses</span></div>
+        <table><thead><tr><th>Date</th><th>Description</th><th>Category</th><th>Amount</th><th></th></tr></thead><tbody id="expenseTableBody"></tbody></table>
+      </div>
+      <div class="exchange-rates">
+        <div style="font-weight:600;display:flex;align-items:center;gap:6px;width:100%;"><i class="fas fa-globe" style="color:#2a7ab0;"></i> Live International Bank Rates (1 USD)</div>
+        <div style="display:flex;flex-wrap:wrap;gap:20px;width:100%;">
+          <div class="rate-item"><span class="currency">ZWL</span><span class="rate" id="rateZWL">--</span></div>
+          <div class="rate-item"><span class="currency">ZAR</span><span class="rate" id="rateZAR">--</span></div>
+          <div class="rate-item"><span class="currency">EUR</span><span class="rate" id="rateEUR">--</span></div>
+          <div class="rate-item"><span class="currency">GBP</span><span class="rate" id="rateGBP">--</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- MODAL -->
+    <div class="modal-overlay" id="genericModal">
+      <div class="modal">
+        <div style="display:flex;align-items:center;margin-bottom:8px;">
+          <h2 id="modalTitle"><i class="fas fa-edit"></i> Add</h2>
+          <button class="close" id="closeModalBtn">&times;</button>
+        </div>
+        <form id="modalForm">
+          <div id="modalFields"></div>
+          <button type="submit" class="btn-submit">Save</button>
+          <button type="button" class="btn-cancel" id="modalCancelBtn">Cancel</button>
+        </form>
+      </div>
+    </div>
+  </main>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+  (function() {
+    'use strict';
+
+    // NAVIGATION
+    const navLinks = document.querySelectorAll('nav a[data-section]');
+    const sections = { crops:document.getElementById('section-crops'), equipment:document.getElementById('section-equipment'), users:document.getElementById('section-users'), map:document.getElementById('section-map'), roster:document.getElementById('section-roster'), finance:document.getElementById('section-finance') };
+    navLinks.forEach(link => {
+      link.addEventListener('click', function(e) {
+        e.preventDefault();
+        const s = this.dataset.section;
+        navLinks.forEach(l => l.classList.remove('active'));
+        this.classList.add('active');
+        Object.keys(sections).forEach(k => sections[k].classList.toggle('active', k === s));
+        if (s === 'map') setTimeout(initMap, 100);
+        if (s === 'finance') { renderFinance(); updateChart(); fetchExchangeRates(); }
+      });
+    });
+
+    // CROPS
+    const CROP_DURATION = { Maize:120, Tobacco:90, Cotton:150, Tomatoes:80, Wheat:110, Sorghum:100, Soybean:90, Groundnut:100 };
+    const CROP_ICONS = { Maize:'fa-seedling', Tobacco:'fa-leaf', Cotton:'fa-tree', Tomatoes:'fa-apple-alt', Wheat:'fa-wheat-alt', Sorghum:'fa-seedling', Soybean:'fa-seedling', Groundnut:'fa-seedling' };
+    let crops = [];
+    function loadCrops() {
+      const s = localStorage.getItem('farmCrops');
+      if (s) { try { crops = JSON.parse(s); } catch(e) { crops=[]; } }
+      else { crops = [ {id:Date.now()+1,cropName:'Maize',variety:'SC403',cropType:'Maize',plantingDate:'2026-06-01',fieldName:'Field A',notes:'Tasseling'}, {id:Date.now()+2,cropName:'Tobacco',variety:'Kutsaga',cropType:'Tobacco',plantingDate:'2026-06-15',fieldName:'Field B',notes:'Topping soon'}, {id:Date.now()+3,cropName:'Tomatoes',variety:'Heinz',cropType:'Tomatoes',plantingDate:'2026-07-01',fieldName:'Greenhouse',notes:'Ripening'} ]; saveCrops(); }
+    }
+    function saveCrops() { localStorage.setItem('farmCrops', JSON.stringify(crops)); }
+    function calcGrowth(c) { const d=Math.max(0,Math.floor((new Date()-new Date(c.plantingDate))/86400000)); return Math.min(100,Math.round((d/(CROP_DURATION[c.cropType]||100))*100)); }
+    function getStage(p) { if(p<10)return'Germination';if(p<30)return'Vegetative';if(p<60)return'Flowering';if(p<85)return'Fruiting/Grain fill';if(p<100)return'Maturation';return'Harvest ready'; }
+    function getMoisture() { return Math.min(100,Math.round(50+Math.random()*30)); }
+
+    function renderCrops() {
+      const cl=document.getElementById('cropList'), ov=document.getElementById('overallCrop');
+      cl.innerHTML=''; cl.appendChild(ov);
+      let tg=0,tm=0,alerts=[],soilActs=[],pestActs=[];
+      crops.forEach(c => {
+        const g=calcGrowth(c),m=getMoisture(),st=getStage(g),ic=CROP_ICONS[c.cropType]||'fa-seedling';
+        tg+=g; tm+=m;
+        const div=document.createElement('div'); div.className='crop-item';
+        div.innerHTML=`<div class="icon"><i class="fas ${ic}"></i></div><div class="info"><div class="name">${c.cropName}${c.variety?' ('+c.variety+')':''}</div><div class="detail">${st} &bull; ${c.fieldName||'No field'}</div><div class="meta"><span><i class="far fa-calendar-alt"></i> Planted: ${new Date(c.plantingDate).toLocaleDateString()}</span><span><i class="fas fa-tint"></i> Moisture: ${m}%</span></div></div><div class="progress-wrap"><div class="progress-bar"><div class="fill" style="width:${g}%;"></div></div><span class="progress-label">${g}%</span></div><button class="delete-btn" data-id="${c.id}"><i class="fas fa-trash-alt"></i></button>`;
+        cl.appendChild(div);
+        if(g>=90) alerts.push({title:`${c.cropName} harvest readiness`,desc:`${c.cropName} at ${g}% - prepare harvest.`,icon:'info'});
+        if(m<50){alerts.push({title:`Low moisture in ${c.cropName}`,desc:`Moisture ${m}% - irrigate.`,icon:'warning'});soilActs.push(`Irrigate ${c.cropName} (${c.fieldName||''})`);}
+        if(g>30&&g<60&&Math.random()>0.6) pestActs.push({title:`Pest risk for ${c.cropName}`,desc:'Monitor for pests.',icon:'danger'});
+      });
+      const op=crops.length?Math.round(tg/crops.length):0;
+      document.getElementById('overallPercent').textContent=op+'%';
+      document.querySelector('#overallCrop .progress-bar .fill').style.width=op+'%';
+      document.getElementById('plotCount').textContent=crops.length;
+      document.getElementById('avgMoisture').innerHTML=(crops.length?Math.round(tm/crops.length):'--')+'<span class="unit">%</span>';
+      document.getElementById('alertCount').textContent=alerts.length;
+      const sl=document.getElementById('soilInsightsList');
+      sl.innerHTML=soilActs.length===0?`<div class="insight-item"><div class="icon info"><i class="fas fa-check-circle"></i></div><div class="content"><div class="title">All soil parameters normal</div><div class="desc">No immediate action needed.</div><div class="meta"><i class="far fa-clock"></i> Now</div></div></div>`:soilActs.map(a=>`<div class="insight-item"><div class="icon warning"><i class="fas fa-flask"></i></div><div class="content"><div class="title">Action required</div><div class="desc">${a}</div><div class="meta"><i class="far fa-clock"></i> Now</div></div></div>`).join('');
+      document.getElementById('soilActionCount').textContent=soilActs.length+' actions';
+      const pl=document.getElementById('pestInsightsList');
+      pl.innerHTML=pestActs.length===0?`<div class="insight-item"><div class="icon info"><i class="fas fa-check-circle"></i></div><div class="content"><div class="title">No pest alerts</div><div class="desc">Your crops are currently safe.</div><div class="meta"><i class="far fa-clock"></i> Now</div></div></div>`:pestActs.map(a=>`<div class="insight-item"><div class="icon danger"><i class="fas fa-bug"></i></div><div class="content"><div class="title">${a.title}</div><div class="desc">${a.desc}</div><div class="meta"><i class="far fa-clock"></i> Now</div></div></div>`).join('');
+      document.getElementById('pestAlertCount').textContent=pestActs.length;
+      const ac=document.getElementById('alertsContainer');
+      ac.innerHTML=alerts.length===0?`<div class="alert-item"><div class="icon info"><i class="fas fa-info-circle"></i></div><div class="content"><div class="title">No active alerts</div><div class="desc">All crops are healthy.</div><div class="time"><i class="far fa-clock"></i> Now</div></div></div>`:alerts.map(a=>`<div class="alert-item"><div class="icon ${a.icon==='warning'?'warning':'info'}"><i class="fas ${a.icon==='warning'?'fa-exclamation-triangle':'fa-info-circle'}"></i></div><div class="content"><div class="title">${a.title}</div><div class="desc">${a.desc}</div><div class="time"><i class="far fa-clock"></i> Now</div></div></div>`).join('');
+      document.getElementById('plotChange').innerHTML=`<i class="fas fa-arrow-up"></i> ${crops.length} active`;
+      document.getElementById('moistureChange').innerHTML=`<i class="fas fa-arrow-down"></i> ${crops.length?'0%':'--'} from yesterday`;
+    }
+
+    // PRICE TICKER
+    const priceData=[{crop:'Maize',price:385,change:0},{crop:'Tobacco',price:4250,change:0},{crop:'Cotton',price:1020,change:0},{crop:'Tomatoes',price:520,change:0}];
+    function updatePrices(){
+      priceData.forEach(i=>{const d=(Math.random()-0.5)*6;i.price=Math.max(10,Math.round((i.price+d)*100)/100);i.change=d;});
+      document.getElementById('priceTicker').innerHTML=`<div style="font-weight:600;color:#0e1f2e;display:flex;align-items:center;gap:6px;"><i class="fas fa-chart-line" style="color:#2a7ab0;"></i> Live Crop Prices (USD/ton)</div>`+priceData.map(i=>`<div class="price-item"><span class="crop">${i.crop}</span><span class="price">$${i.price.toFixed(2)}</span><span class="change ${i.change>=0?'up':'down'}">${i.change>=0?'+':''}${i.change.toFixed(2)}%</span></div>`).join('');
+    }
+    setInterval(updatePrices, 10000);
+
+    // WEATHER
+    const iconMap={'113':'fas fa-sun','116':'fas fa-cloud-sun','119':'fas fa-cloud','122':'fas fa-cloud','176':'fas fa-cloud-rain','263':'fas fa-cloud-rain','266':'fas fa-cloud-rain','293':'fas fa-cloud-rain','296':'fas fa-cloud-rain','299':'fas fa-cloud-rain','302':'fas fa-cloud-showers-heavy','305':'fas fa-cloud-showers-heavy','308':'fas fa-cloud-showers-heavy','353':'fas fa-cloud-rain','356':'fas fa-cloud-showers-heavy','386':'fas fa-cloud-rain','389':'fas fa-bolt'};
+    async function fetchWeather() {
+      try {
+        const r=await fetch('https://wttr.in/Harare?format=j1'); if(!r.ok)throw new Error();
+        const d=await r.json(), c=d.current_condition[0];
+        const t=c.temp_C,fl=c.FeelsLikeC,desc=c.weatherDesc[0].value,code=c.weatherCode;
+        document.getElementById('weatherTemp').textContent=`${t}°`;
+        document.getElementById('weatherCondition').textContent=desc;
+        document.getElementById('weatherFeelsLike').textContent=`Feels like ${fl}°`;
+        document.getElementById('weatherUpdateTime').textContent=`Updated: ${new Date().toLocaleTimeString()}`;
+        document.getElementById('currentTempDisplay').innerHTML=`${t}<span class="unit">°C</span>`;
+        document.getElementById('feelsLikeDisplay').textContent=`Feels like ${fl}°C`;
+        document.getElementById('weatherIcon').className=`icon ${iconMap[code]||'fas fa-cloud'}`;
+        const fc=document.getElementById('forecastContainer'); fc.innerHTML='';
+        d.weather.slice(0,5).forEach(day=>{
+          const name=new Date(day.date).toLocaleDateString('en',{weekday:'short'});
+          fc.innerHTML+=`<div class="day"><div class="name">${name}</div><div class="icon"><i class="${iconMap[day.hourly[0]?.weatherCode]||'fas fa-cloud'}"></i></div><div class="high">${day.maxtempC}°</div><div class="low">${day.mintempC}°</div></div>`;
+        });
+        const avg=d.weather.slice(0,5).reduce((s,x)=>s+parseInt(x.maxtempC),0)/5, diff=t-avg;
+        document.getElementById('climateMessage').textContent=diff>2?`Current temp is ${diff.toFixed(1)}°C above 5-day avg. Protect young plants.`:diff<-2?`Current temp is ${Math.abs(diff).toFixed(1)}°C below avg. Watch for cold stress.`:'Temperatures are within normal range.';
+        document.getElementById('mapWeatherTemp').textContent=`${t}°C`;
+        document.getElementById('mapWeatherDesc').textContent=desc;
+        document.getElementById('mapRainfall').textContent=`${c.precipMM||0} mm`;
+        document.getElementById('mapRainfallStatus').textContent=c.precipMM>0?'Rain recorded':'Dry';
+      } catch(e) { document.getElementById('weatherCondition').textContent='Weather offline'; }
+    }
+    fetchWeather(); setInterval(fetchWeather,30*60*1000);
+
+    // EQUIPMENT
+    let equipment=[];
+    function loadEquipment(){const s=localStorage.getItem('farmEquipment');if(s){try{equipment=JSON.parse(s);}catch(e){equipment=[];}}else{equipment=[{id:1,name:'Tractor #1',type:'Tractor',status:'operational',lastService:'2026-06-15',nextService:'2026-08-15'},{id:2,name:'Tractor #2',type:'Tractor',status:'maintenance',lastService:'2026-05-10',nextService:'2026-07-10'},{id:3,name:'Harvester #1',type:'Harvester',status:'operational',lastService:'2026-06-20',nextService:'2026-09-20'},{id:4,name:'Sprayer #1',type:'Sprayer',status:'out-of-order',lastService:'2026-04-01',nextService:'2026-06-01'}];saveEquipment();}}
+    function saveEquipment(){localStorage.setItem('farmEquipment',JSON.stringify(equipment));}
+    function renderEquipment(){const tb=document.getElementById('equipmentTableBody');tb.innerHTML='';let op=0,ma=0,ou=0;equipment.forEach(e=>{if(e.status==='operational')op++;else if(e.status==='maintenance')ma++;else ou++;const sc=e.status==='operational'?'operational':e.status==='maintenance'?'maintenance':'out-of-order';tb.innerHTML+=`<tr><td><strong>${e.name}</strong></td><td>${e.type}</td><td><span class="status-badge ${sc}">${e.status.replace('-',' ')}</span></td><td>${e.lastService}</td><td>${e.nextService}</td><td><button class="delete-btn" data-eqid="${e.id}"><i class="fas fa-trash-alt"></i></button></td></tr>`;});document.getElementById('eqOperational').textContent=op;document.getElementById('eqMaintenance').textContent=ma;document.getElementById('eqOutOfOrder').textContent=ou;}
+
+    // USERS
+    let users=[];
+    function loadUsers(){const s=localStorage.getItem('farmUsers');if(s){try{users=JSON.parse(s);}catch(e){users=[];}}else{users=[{id:1,name:'Tendai Farmer',email:'tendai@farm.co.zw',role:'admin',access:'All fields'},{id:2,name:'Sarah Moyo',email:'sarah@farm.co.zw',role:'manager',access:'Field A, B'},{id:3,name:'John Ncube',email:'john@farm.co.zw',role:'operator',access:'Greenhouse'}];saveUsers();}}
+    function saveUsers(){localStorage.setItem('farmUsers',JSON.stringify(users));}
+    function renderUsers(){const tb=document.getElementById('userTableBody');tb.innerHTML='';users.forEach(u=>{const rc=u.role==='admin'?'admin':u.role==='manager'?'manager':'operator';tb.innerHTML+=`<tr><td><strong>${u.name}</strong></td><td>${u.email}</td><td><span class="role-badge ${rc}">${u.role}</span></td><td>${u.access}</td><td><button class="delete-btn" data-uid="${u.id}"><i class="fas fa-trash-alt"></i></button></td></tr>`;});}
+
+    // ROSTER
+    let roster=[];
+    function loadRoster(){const s=localStorage.getItem('farmRoster');if(s){try{roster=JSON.parse(s);}catch(e){roster=[];}}else{roster=[{day:'Monday',tasks:[{task:'Irrigate Field A',assigned:'Tendai'},{task:'Check pests',assigned:'Sarah'}]},{day:'Tuesday',tasks:[{task:'Fertilize Field B',assigned:'John'}]},{day:'Wednesday',tasks:[{task:'Harvest tomatoes',assigned:'Tendai'},{task:'Equipment service',assigned:'Sarah'}]},{day:'Thursday',tasks:[{task:'Weeding',assigned:'John'}]},{day:'Friday',tasks:[{task:'Prepare market delivery',assigned:'Tendai'}]},{day:'Saturday',tasks:[{task:'General maintenance',assigned:'Sarah'}]},{day:'Sunday',tasks:[{task:'Rest day',assigned:'All'}]}];saveRoster();}}
+    function saveRoster(){localStorage.setItem('farmRoster',JSON.stringify(roster));}
+    function renderRoster(){const g=document.getElementById('rosterGrid');g.innerHTML='';roster.forEach(d=>{const div=document.createElement('div');div.className='roster-day';div.innerHTML=`<div class="day-title">${d.day}</div>`+(d.tasks.length?d.tasks.map(t=>`<div class="roster-task"><span>${t.task}</span><span class="assigned">${t.assigned}</span></div>`).join(''):`<div class="roster-task"><span>No tasks</span><span>-</span></div>`);g.appendChild(div);});}
+
+    // MAP
+    let mapInstance=null;
+    function initMap(){if(mapInstance){mapInstance.invalidateSize();return;}mapInstance=L.map('map').setView([-17.825,31.053],13);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'&copy; OpenStreetMap contributors'}).addTo(mapInstance);L.marker([-17.825,31.053]).addTo(mapInstance).bindPopup('FarmSmartPro HQ<br>Harare, Zimbabwe').openPopup();}
+
+    // FINANCE
+    let expenses=[], budget=0;
+    function loadFinance(){
+      const se=localStorage.getItem('farmExpenses');
+      if(se){try{expenses=JSON.parse(se);}catch(e){expenses=[];}}
+      else{const t=new Date(),d=86400000;expenses=[{id:Date.now()+1,description:'Fertilizer',amount:450,date:new Date(t-7*d).toISOString().split('T')[0],category:'Inputs'},{id:Date.now()+2,description:'Tractor fuel',amount:230,date:new Date(t-5*d).toISOString().split('T')[0],category:'Fuel'},{id:Date.now()+3,description:'Labor',amount:320,date:new Date(t-3*d).toISOString().split('T')[0],category:'Labor'},{id:Date.now()+4,description:'Seed',amount:180,date:new Date(t-1*d).toISOString().split('T')[0],category:'Inputs'}];saveExpenses();}
+      const sb=localStorage.getItem('farmBudget');
+      budget=sb?parseFloat(sb)||0:2000; saveBudget();
+    }
+    function saveExpenses(){localStorage.setItem('farmExpenses',JSON.stringify(expenses));}
+    function saveBudget(){localStorage.setItem('farmBudget',budget.toString());}
+
+    function renderFinance(){
+      const tot=expenses.reduce((s,e)=>s+e.amount,0),rem=budget-tot;
+      document.getElementById('totalBudget').textContent=`$${budget.toFixed(2)}`;
+      document.getElementById('totalExpenses').textContent=`$${tot.toFixed(2)}`;
+      document.getElementById('remainingBudget').textContent=`$${rem.toFixed(2)}`;
+      document.getElementById('expenseCount').textContent=expenses.length;
+      const box=document.getElementById('conclusionBox');
+      if(budget===0){box.className='conclusion yellow';box.textContent='Please set a budget to enable smart analysis.';}
+      else{const r=tot/budget;if(r>1){box.className='conclusion red';box.textContent=`ALERT: Expenses ($${tot.toFixed(2)}) have EXCEEDED budget ($${budget.toFixed(2)}) by $${(tot-budget).toFixed(2)}. Please review spending.`;}else if(r>0.8){box.className='conclusion yellow';box.textContent=`Warning: ${(r*100).toFixed(0)}% of budget used. Consider reducing non-essential costs.`;}else{box.className='conclusion green';box.textContent=`Expenses are well within budget (${(r*100).toFixed(0)}% used). Good financial management!`;}}
+      const tb=document.getElementById('expenseTableBody'); tb.innerHTML='';
+      [...expenses].sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0,20).forEach(e=>{tb.innerHTML+=`<tr><td>${e.date}</td><td>${e.description}</td><td>${e.category||'General'}</td><td>$${e.amount.toFixed(2)}</td><td><button class="delete-btn" data-expid="${e.id}"><i class="fas fa-trash-alt"></i></button></td></tr>`;});
+    }
+
+    // CHART
+    let chartInstance=null;
+    function updateChart(){
+      const ctx=document.getElementById('expenseChart').getContext('2d');
+      const sorted=[...expenses].sort((a,b)=>new Date(a.date)-new Date(b.date));
+      const map=new Map(); sorted.forEach(e=>{map.set(e.date,(map.get(e.date)||0)+e.amount);});
+      const labels=Array.from(map.keys()); let cum=0;
+      const data=Array.from(map.values()).map(v=>{cum+=v;return cum;});
+      if(chartInstance)chartInstance.destroy();
+      chartInstance=new Chart(ctx,{type:'line',data:{labels,datasets:[{label:'Cumulative Expenses',data,borderColor:'#2a7ab0',backgroundColor:'rgba(42,122,176,0.1)',fill:true,tension:0.3,pointRadius:3,pointBackgroundColor:'#2d9b5e'}]},options:{responsive:true,maintainAspectRatio:true,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`$${c.parsed.y.toFixed(2)}`}}},scales:{y:{beginAtZero:true,ticks:{callback:v=>'$'+v.toFixed(0)}}}}});
+    }
+
+    // EXCHANGE RATES
+    async function fetchExchangeRates(){
+      try{const r=await fetch('https://api.exchangerate-api.com/v4/latest/USD');if(!r.ok)throw new Error();const d=await r.json(),rates=d.rates;
+        document.getElementById('rateZWL').textContent=rates.ZWL?rates.ZWL.toFixed(2):'--';
+        document.getElementById('rateZAR').textContent=rates.ZAR?rates.ZAR.toFixed(2):'--';
+        document.getElementById('rateEUR').textContent=rates.EUR?rates.EUR.toFixed(2):'--';
+        document.getElementById('rateGBP').textContent=rates.GBP?rates.GBP.toFixed(2):'--';
+      }catch(e){document.querySelectorAll('.rate-item .rate').forEach(el=>el.textContent='--');}
+    }
+
+    // MODAL
+    const mOverlay=document.getElementById('genericModal'),mTitle=document.getElementById('modalTitle'),mFields=document.getElementById('modalFields'),mForm=document.getElementById('modalForm');
+    let mCallback=null;
+    function showModal(title,fields,cb){mTitle.innerHTML=`<i class="fas fa-edit"></i> ${title}`;mFields.innerHTML=fields;mOverlay.classList.add('active');mCallback=cb;}
+    function closeModal(){mOverlay.classList.remove('active');mCallback=null;mForm.reset();}
+    document.getElementById('closeModalBtn').addEventListener('click',closeModal);
+    document.getElementById('modalCancelBtn').addEventListener('click',closeModal);
+    mOverlay.addEventListener('click',e=>{if(e.target===mOverlay)closeModal();});
+    mForm.addEventListener('submit',function(e){
+      e.preventDefault();
+      if(mCallback){
+        const ids=['cropName','variety','cropType','plantingDate','fieldName','notes','eqName','eqType','eqStatus','eqLastService','eqNextService','userName','userEmail','userRole','userAccess','rosterDay','rosterTask','rosterAssigned','expDesc','expAmount','expDate','expCategory','budgetAmount'];
+        const data={}; ids.forEach(id=>{const el=document.getElementById(id);if(el)data[id]=el.value;});
+        mCallback(data);
+      }
+      closeModal();
+    });
+
+    // CLICK DELEGATION
+    document.addEventListener('click',function(e){
+      if(e.target.closest('.delete-btn[data-id]')){const id=parseInt(e.target.closest('[data-id]').dataset.id);if(confirm('Delete this crop?')){crops=crops.filter(c=>c.id!==id);saveCrops();renderCrops();}}
+      if(e.target.closest('[data-eqid]')){const id=parseInt(e.target.closest('[data-eqid]').dataset.eqid);if(confirm('Remove this equipment?')){equipment=equipment.filter(e=>e.id!==id);saveEquipment();renderEquipment();}}
+      if(e.target.closest('[data-uid]')){const id=parseInt(e.target.closest('[data-uid]').dataset.uid);if(confirm('Delete this user?')){users=users.filter(u=>u.id!==id);saveUsers();renderUsers();}}
+      if(e.target.closest('[data-expid]')){const id=parseInt(e.target.closest('[data-expid]').dataset.expid);if(confirm('Delete this expense?')){expenses=expenses.filter(x=>x.id!==id);saveExpenses();renderFinance();updateChart();}}
+    });
+
+    // WIRE BUTTONS
+    document.getElementById('addCropBtn').addEventListener('click',()=>showModal('Add New Crop',`<label>Crop Name *</label><input type="text" id="cropName" required /><label>Variety</label><input type="text" id="variety" /><label>Crop Type *</label><select id="cropType" required><option>Maize</option><option>Tobacco</option><option>Cotton</option><option>Tomatoes</option><option>Wheat</option><option>Sorghum</option><option>Soybean</option><option>Groundnut</option></select><label>Planting Date *</label><input type="date" id="plantingDate" required /><label>Field / Plot</label><input type="text" id="fieldName" /><label>Notes</label><textarea id="notes" rows="2"></textarea>`,d=>{const n=d.cropName?.trim(),ct=d.cropType,pd=d.plantingDate;if(!n||!ct||!pd){alert('Fill required fields');return;}crops.push({id:Date.now(),cropName:n,variety:d.variety||'',cropType:ct,plantingDate:pd,fieldName:d.fieldName||'',notes:d.notes||''});saveCrops();renderCrops();}));
+
+    document.getElementById('addEquipmentBtn').addEventListener('click',()=>showModal('Add Equipment',`<label>Name *</label><input type="text" id="eqName" required /><label>Type *</label><select id="eqType" required><option>Tractor</option><option>Harvester</option><option>Sprayer</option><option>Plough</option><option>Irrigation</option></select><label>Status</label><select id="eqStatus"><option value="operational">Operational</option><option value="maintenance">Maintenance</option><option value="out-of-order">Out of Order</option></select><label>Last Service</label><input type="date" id="eqLastService" /><label>Next Service Due</label><input type="date" id="eqNextService" />`,d=>{const n=d.eqName?.trim();if(!n){alert('Name is required');return;}equipment.push({id:Date.now(),name:n,type:d.eqType,status:d.eqStatus||'operational',lastService:d.eqLastService||'N/A',nextService:d.eqNextService||'N/A'});saveEquipment();renderEquipment();}));
+
+    document.getElementById('addUserBtn').addEventListener('click',()=>showModal('Add User',`<label>Full Name *</label><input type="text" id="userName" required /><label>Email *</label><input type="email" id="userEmail" required /><label>Role *</label><select id="userRole" required><option value="admin">Admin</option><option value="manager">Manager</option><option value="operator">Operator</option></select><label>Farm Access</label><input type="text" id="userAccess" placeholder="e.g., All fields" />`,d=>{const n=d.userName?.trim(),em=d.userEmail?.trim();if(!n||!em){alert('Name and email required');return;}users.push({id:Date.now(),name:n,email:em,role:d.userRole||'operator',access:d.userAccess||'None'});saveUsers();renderUsers();}));
+
+    document.getElementById('addTaskBtn').addEventListener('click',()=>showModal('Add Roster Task',`<label>Day *</label><select id="rosterDay" required><option>Monday</option><option>Tuesday</option><option>Wednesday</option><option>Thursday</option><option>Friday</option><option>Saturday</option><option>Sunday</option></select><label>Task *</label><input type="text" id="rosterTask" required /><label>Assigned To</label><input type="text" id="rosterAssigned" placeholder="e.g., Tendai" />`,d=>{const task=d.rosterTask?.trim();if(!task){alert('Task is required');return;}const day=d.rosterDay,assigned=d.rosterAssigned?.trim()||'Unassigned',dayObj=roster.find(x=>x.day===day);if(dayObj)dayObj.tasks.push({task,assigned});else roster.push({day,tasks:[{task,assigned}]});saveRoster();renderRoster();}));
+
+    document.getElementById('addExpenseBtn').addEventListener('click',()=>showModal('Add Expense',`<label>Description *</label><input type="text" id="expDesc" required /><label>Amount (USD) *</label><input type="number" id="expAmount" step="0.01" min="0.01" required /><label>Date</label><input type="date" id="expDate" value="${new Date().toISOString().split('T')[0]}" /><label>Category</label><select id="expCategory"><option>Inputs</option><option>Labor</option><option>Fuel</option><option>Maintenance</option><option>Utilities</option><option>Other</option></select>`,d=>{const desc=d.expDesc?.trim(),amt=parseFloat(d.expAmount);if(!desc||isNaN(amt)||amt<=0){alert('Valid description and amount required');return;}expenses.push({id:Date.now(),description:desc,amount:amt,date:d.expDate||new Date().toISOString().split('T')[0],category:d.expCategory||'General'});saveExpenses();renderFinance();updateChart();}));
+
+    document.getElementById('setBudgetBtn').addEventListener('click',()=>showModal('Set Budget',`<label>Total Budget (USD) *</label><input type="number" id="budgetAmount" step="0.01" min="0" value="${budget}" required />`,d=>{const v=parseFloat(d.budgetAmount);if(isNaN(v)||v<0){alert('Please enter a valid budget amount.');return;}budget=v;saveBudget();renderFinance();updateChart();}));
+
+    document.getElementById('viewAllCropsLink').addEventListener('click',e=>{e.preventDefault();document.querySelector('nav a[data-section="crops"]').click();});
+    document.getElementById('viewAlertsLink').addEventListener('click',e=>{e.preventDefault();document.querySelector('nav a[data-section="crops"]').click();setTimeout(()=>document.querySelector('.alerts-section').scrollIntoView({behavior:'smooth'}),100);});
+    document.getElementById('viewAllAlertsLink').addEventListener('click',e=>{e.preventDefault();document.querySelector('nav a[data-section="crops"]').click();setTimeout(()=>document.querySelector('.alerts-section').scrollIntoView({behavior:'smooth'}),100);});
+
+    // INIT
+    document.getElementById('currentDate').textContent=new Date().toLocaleDateString('en-ZA',{year:'numeric',month:'short',day:'numeric'});
+    loadCrops(); renderCrops();
+    loadEquipment(); renderEquipment();
+    loadUsers(); renderUsers();
+    loadRoster(); renderRoster();
+    loadFinance(); renderFinance(); updateChart(); fetchExchangeRates();
+    updatePrices();
+    setInterval(fetchExchangeRates, 120000);
+
+  })();
+  </script>
+</body>
+</html>
