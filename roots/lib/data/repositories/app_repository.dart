@@ -25,6 +25,12 @@ class AppRepository {
 
   // ── Auth / users ──────────────────────────────────────────
   FarmUser? currentUser() {
+    // Prefer local session — demo login on desktop must not depend on Firebase UID.
+    final id = _store.sessionUserId;
+    if (id != null) {
+      final map = _store.getMap(HiveBoxes.users, id);
+      if (map != null) return FarmUser.fromMap(map);
+    }
     if (AppConstants.firebaseConfigured) {
       final fbUser = FirebaseAuth.instance.currentUser;
       if (fbUser != null) {
@@ -32,10 +38,7 @@ class AppRepository {
         if (map != null) return FarmUser.fromMap(map);
       }
     }
-    final id = _store.sessionUserId;
-    if (id == null) return null;
-    final map = _store.getMap(HiveBoxes.users, id);
-    return map == null ? null : FarmUser.fromMap(map);
+    return null;
   }
 
   Future<FarmUser?> login(String email, String password) async {
@@ -47,16 +50,18 @@ class AppRepository {
         );
         final uid = cred.user!.uid;
         final user = await _loadOrCreateUserDoc(uid, email.trim());
-        if (user == null) return null;
-        await _store.putMap(HiveBoxes.users, user.id, user.toMap());
-        await _store.setSessionUserId(user.id);
-        await _sync.syncFarm(user.farmId);
-        return user;
-      } on FirebaseAuthException catch (e) {
-        if (e.code == 'user-not-found' || e.code == 'invalid-credential') {
-          return _localLogin(email, password);
+        if (user != null) {
+          await _store.putMap(HiveBoxes.users, user.id, user.toMap());
+          await _store.setSessionUserId(user.id);
+          await _sync.syncFarm(user.farmId);
+          return user;
         }
-        rethrow;
+        // Firebase account exists but no Roots profile — use local demo session.
+        await FirebaseAuth.instance.signOut();
+        return _localLogin(email, password);
+      } catch (_) {
+        // Windows / network / unknown credential errors → offline demo login.
+        return _localLogin(email, password);
       }
     }
     return _localLogin(email, password);

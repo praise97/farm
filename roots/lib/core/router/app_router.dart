@@ -25,20 +25,24 @@ import '../../presentation/screens/workers/workers_screen.dart';
 
 final _rootKey = GlobalKey<NavigatorState>();
 
+/// Stable GoRouter — do NOT watch auth here (that recreates the router and
+/// kicks the user back to login after a successful sign-in).
 final routerProvider = Provider<GoRouter>((ref) {
-  final auth = ref.watch(authStateProvider);
+  final refresh = _AuthRefresh(ref);
 
   return GoRouter(
     navigatorKey: _rootKey,
-    initialLocation: '/dashboard',
-    refreshListenable: _AuthRefresh(ref),
+    initialLocation: '/login',
+    refreshListenable: refresh,
     redirect: (context, state) {
+      final auth = ref.read(authStateProvider);
       final loggingIn = state.matchedLocation == '/login' ||
           state.matchedLocation == '/register' ||
           state.matchedLocation == '/forgot-password';
       final user = auth.valueOrNull;
-      final loading = auth.isLoading;
+      final loading = auth.isLoading && !auth.hasValue;
 
+      // Stay put while the very first auth bootstrap is unresolved.
       if (loading) return null;
       if (user == null && !loggingIn) return '/login';
       if (user != null && loggingIn) return '/dashboard';
@@ -81,7 +85,10 @@ final routerProvider = Provider<GoRouter>((ref) {
 
 class _AuthRefresh extends ChangeNotifier {
   _AuthRefresh(this.ref) {
-    ref.listen(authStateProvider, (previous, next) => notifyListeners());
+    ref.listen<AsyncValue<dynamic>>(authStateProvider, (previous, next) {
+      notifyListeners();
+    });
   }
+
   final Ref ref;
 }

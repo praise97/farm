@@ -120,19 +120,17 @@ class AuthController extends StateNotifier<AsyncValue<FarmUser?>> {
   }
 
   Future<String?> login(String email, String password) async {
-    state = const AsyncValue.loading();
+    // Do not clear auth to loading — that recreates navigation as "logged out".
     try {
       final user = await _repo.login(email, password);
       if (user == null) {
-        state = const AsyncValue.data(null);
         return 'Invalid email or password';
       }
       state = AsyncValue.data(user);
       await _ref.read(syncStatusProvider.notifier).refresh();
       _ref.read(dataVersionProvider.notifier).state++;
       return null;
-    } catch (e, st) {
-      state = AsyncValue.error(e, st);
+    } catch (e) {
       return e.toString();
     }
   }
@@ -143,7 +141,6 @@ class AuthController extends StateNotifier<AsyncValue<FarmUser?>> {
     required String password,
     required String farmName,
   }) async {
-    state = const AsyncValue.loading();
     try {
       final user = await _repo.register(
         name: name,
@@ -155,8 +152,7 @@ class AuthController extends StateNotifier<AsyncValue<FarmUser?>> {
       await _ref.read(syncStatusProvider.notifier).refresh();
       _ref.read(dataVersionProvider.notifier).state++;
       return null;
-    } catch (e, st) {
-      state = AsyncValue.error(e, st);
+    } catch (e) {
       return e.toString();
     }
   }
