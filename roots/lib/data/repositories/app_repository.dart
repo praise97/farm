@@ -4,8 +4,10 @@ import 'package:uuid/uuid.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/constants/enums.dart';
+import '../../core/notifications/notification_service.dart';
 import '../../core/offline/local_store.dart';
 import '../../core/offline/sync_service.dart';
+import '../../core/services/animal_photo_service.dart';
 import '../../domain/entities/animal.dart';
 import '../../domain/entities/crop_entities.dart';
 import '../../domain/entities/equipment.dart';
@@ -221,11 +223,117 @@ class AppRepository {
     return map == null ? null : Animal.fromMap(map);
   }
 
-  Future<Animal> saveAnimal(Animal animal) async {
-    await _store.putMap(HiveBoxes.animals, animal.id, animal.toMap());
-    await _store.enqueueSync({'op': 'upsertAnimal', 'data': animal.toMap()});
-    await _triggerSync(animal.farmId);
-    return animal;
+  Future<Animal> saveAnimal(Animal animal, {Animal? previous}) async {
+    var next = animal;
+    final wasTerminal = previous?.isTerminal ?? false;
+    final nowTerminal = animal.isTerminal;
+
+    if (!wasTerminal && nowTerminal) {
+      await _purgeAnimalPhotos(next);
+      next = next.copyWith(
+        clearPhoto1: true,
+        clearPhoto2: true,
+        clearPhotosUpdatedAt: true,
+        photoUrl: null,
+        updatedAt: DateTime.now(),
+      );
+    }
+
+    await _store.putMap(HiveBoxes.animals, next.id, next.toMap());
+    await _store.enqueueSync({'op': 'upsertAnimal', 'data': next.toMap()});
+    await _triggerSync(next.farmId);
+    return next;
+  }
+
+  Future<void> _purgeAnimalPhotos(Animal animal) async {
+    await AnimalPhotoService.instance.deleteUrls([
+      animal.photo1Url,
+      animal.photo2Url,
+      animal.photoUrl,
+    ]);
+  }
+
+  /// Upload 2 photos; deletes previous URLs first to save storage.
+  Future<Animal> saveAnimalPhotos({
+    required Animal animal,
+    String? photo1LocalPath,
+    String? photo2LocalPath,
+  }) async {
+    final oldUrls = [animal.photo1Url, animal.photo2Url];
+    String? photo1Url = animal.photo1Url;
+    String? photo2Url = animal.photo2Url;
+
+    if (photo1LocalPath != null) {
+      if (animal.photo1Url != null) {
+        await AnimalPhotoService.instance.deleteUrls([animal.photo1Url]);
+      }
+      photo1Url = await AnimalPhotoService.instance.upload(
+        farmId: animal.farmId,
+        animalId: animal.id,
+        slot: 1,
+        localPath: photo1LocalPath,
+      );
+    }
+    if (photo2LocalPath != null) {
+      if (animal.photo2Url != null) {
+        await AnimalPhotoService.instance.deleteUrls([animal.photo2Url]);
+      }
+      photo2Url = await AnimalPhotoService.instance.upload(
+        farmId: animal.farmId,
+        animalId: animal.id,
+        slot: 2,
+        localPath: photo2LocalPath,
+      );
+    }
+
+    // If replacing both, ensure any leftover old URL is removed.
+    if (photo1LocalPath != null || photo2LocalPath != null) {
+      for (final old in oldUrls) {
+        if (old != null && old != photo1Url && old != photo2Url) {
+          await AnimalPhotoService.instance.deleteUrls([old]);
+        }
+      }
+    }
+
+    final updated = animal.copyWith(
+      photo1Url: photo1Url,
+      photo2Url: photo2Url,
+      photoUrl: photo1Url,
+      photosUpdatedAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+    return saveAnimal(updated, previous: animal);
+  }
+
+  /// Yearly reminder: capture fresh photos (old ones are replaced on upload).
+  Future<int> scanPhotoRefreshDue(String farmId) async {
+    final now = DateTime.now();
+    final existing = alerts(farmId)
+        .where((a) => a.type == AlertType.photoRefreshDue && !a.read)
+        .map((a) => a.relatedId)
+        .toSet();
+    var created = 0;
+    for (final animal in animals(farmId)) {
+      if (animal.isTerminal) continue;
+      if (!animal.needsPhotoRefresh) continue;
+      if (existing.contains(animal.id)) continue;
+
+      final last = animal.photosUpdatedAt;
+      final alert = FarmAlert(
+        id: _uuid.v4(),
+        farmId: farmId,
+        type: AlertType.photoRefreshDue,
+        title: 'New photos needed: ${animal.tagNumber}',
+        message: last == null
+            ? 'Capture 2 photos for ${animal.breed}. Old photos are removed when you update.'
+            : 'Photos are over 1 year old (last: ${last.day}/${last.month}/${last.year}). Capture 2 new photos — old ones will be deleted from storage.',
+        createdAt: now,
+        relatedId: animal.id,
+      );
+      await addAlert(alert);
+      created++;
+    }
+    return created;
   }
 
   Future<void> deleteAnimal(String id, String farmId) async {
@@ -244,6 +352,19 @@ class AppRepository {
   Future<AnimalTimelineEvent> addTimelineEvent(AnimalTimelineEvent event) async {
     await _store.putMap(HiveBoxes.timeline, event.id, event.toMap());
     await _store.enqueueSync({'op': 'upsertTimeline', 'data': event.toMap()});
+
+    if (event.type == TimelineEventType.death || event.type == TimelineEventType.sale) {
+      final animal = this.animal(event.animalId);
+      if (animal != null && !animal.isTerminal) {
+        final status =
+            event.type == TimelineEventType.death ? AnimalStatus.dead : AnimalStatus.sold;
+        await saveAnimal(
+          animal.copyWith(status: status, updatedAt: DateTime.now()),
+          previous: animal,
+        );
+      }
+    }
+
     await _triggerSync(event.farmId);
     return event;
   }
@@ -447,11 +568,86 @@ class AppRepository {
     await _triggerSync(farmId);
   }
 
-  Future<FarmAlert> addAlert(FarmAlert alert) async {
+  Future<FarmAlert> addAlert(FarmAlert alert, {bool notify = true}) async {
     await _store.putMap(HiveBoxes.alerts, alert.id, alert.toMap());
     await _store.enqueueSync({'op': 'upsertAlert', 'data': alert.toMap()});
     await _triggerSync(alert.farmId);
+    if (notify) {
+      await NotificationService.instance.showAlert(
+        id: alert.id.hashCode,
+        title: alert.title,
+        body: alert.message,
+      );
+    }
     return alert;
+  }
+
+  /// Latest vaccination per animal (uses timeline meta.nextDue).
+  List<VaccinationDueInfo> vaccinationStatus(String farmId) {
+    final out = <VaccinationDueInfo>[];
+    for (final animal in animals(farmId)) {
+      final info = vaccinationForAnimal(animal.id);
+      if (info != null) out.add(info);
+    }
+    out.sort((a, b) {
+      final ad = a.nextDue ?? DateTime(9999);
+      final bd = b.nextDue ?? DateTime(9999);
+      return ad.compareTo(bd);
+    });
+    return out;
+  }
+
+  VaccinationDueInfo? vaccinationForAnimal(String animalId) {
+    final animal = this.animal(animalId);
+    if (animal == null) return null;
+    final vax = timelineFor(animalId)
+        .where((e) => e.type == TimelineEventType.vaccination)
+        .toList();
+    if (vax.isEmpty) {
+      return VaccinationDueInfo(animal: animal, last: null, nextDue: null);
+    }
+    final last = vax.first;
+    DateTime? nextDue;
+    final raw = last.meta['nextDue'];
+    if (raw is String) nextDue = DateTime.tryParse(raw);
+    return VaccinationDueInfo(animal: animal, last: last, nextDue: nextDue);
+  }
+
+  /// Creates alerts + phone notifications for vaccinations due this month / overdue.
+  Future<int> scanVaccinationDue(String farmId) async {
+    final now = DateTime.now();
+    final existing = alerts(farmId)
+        .where((a) => a.type == AlertType.vaccinationDue && !a.read)
+        .map((a) => a.relatedId)
+        .toSet();
+    var created = 0;
+    for (final info in vaccinationStatus(farmId)) {
+      final due = info.nextDue;
+      if (due == null) continue;
+      final dueThisMonth = due.year == now.year && due.month == now.month;
+      final overdue = due.isBefore(DateTime(now.year, now.month, now.day));
+      if (!dueThisMonth && !overdue) continue;
+      if (existing.contains(info.animal.id)) continue;
+
+      final vaccine =
+          info.last?.meta['vaccine'] as String? ?? info.last?.title ?? 'Vaccination';
+      final alert = FarmAlert(
+        id: _uuid.v4(),
+        farmId: farmId,
+        type: AlertType.vaccinationDue,
+        title: overdue
+            ? 'Overdue: ${info.animal.tagNumber}'
+            : 'Vaccinate ${info.animal.tagNumber} this month',
+        message: overdue
+            ? '$vaccine was due ${due.day}/${due.month}/${due.year}. Schedule now.'
+            : '$vaccine due ${due.day}/${due.month}/${due.year} for ${info.animal.breed}.',
+        createdAt: now,
+        relatedId: info.animal.id,
+      );
+      await addAlert(alert);
+      created++;
+    }
+    return created;
   }
 
   // ── Search ────────────────────────────────────────────────
@@ -516,4 +712,29 @@ class AppRepository {
   }
 
   String newId() => _uuid.v4();
+}
+
+class VaccinationDueInfo {
+  const VaccinationDueInfo({
+    required this.animal,
+    required this.last,
+    required this.nextDue,
+  });
+
+  final Animal animal;
+  final AnimalTimelineEvent? last;
+  final DateTime? nextDue;
+
+  bool get dueThisMonth {
+    if (nextDue == null) return false;
+    final now = DateTime.now();
+    return nextDue!.year == now.year && nextDue!.month == now.month;
+  }
+
+  bool get isOverdue {
+    if (nextDue == null) return false;
+    final today = DateTime.now();
+    final d = DateTime(today.year, today.month, today.day);
+    return nextDue!.isBefore(d);
+  }
 }

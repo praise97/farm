@@ -155,9 +155,45 @@ Future<void> seedDemoData() async {
       farmId: farmId,
       type: TimelineEventType.vaccination,
       title: 'FMD Vaccination',
-      notes: 'Dr. Sibanda',
-      date: now.subtract(const Duration(days: 40)),
-      meta: {'nextDue': now.add(const Duration(days: 50)).toIso8601String()},
+      notes: 'Dr. Sibanda — annual booster',
+      date: now.subtract(const Duration(days: 320)),
+      meta: {
+        'vaccine': 'FMD',
+        // Due this calendar month so dashboard + cow summary show it.
+        'nextDue': DateTime(now.year, now.month, now.day > 28 ? 28 : now.day + 2)
+            .toIso8601String(),
+      },
+    ),
+    AnimalTimelineEvent(
+      id: _uuid.v4(),
+      animalId: 'an-002',
+      farmId: farmId,
+      type: TimelineEventType.vaccination,
+      title: 'Anthrax Vaccination',
+      notes: 'Due this month',
+      date: now.subtract(const Duration(days: 350)),
+      meta: {
+        'vaccine': 'Anthrax',
+        'nextDue': DateTime(now.year, now.month, 15).toIso8601String(),
+      },
+    ),
+    AnimalTimelineEvent(
+      id: _uuid.v4(),
+      animalId: 'an-001',
+      farmId: farmId,
+      type: TimelineEventType.weightRecord,
+      title: 'Weight 340 kg',
+      date: now.subtract(const Duration(days: 90)),
+      meta: {'weight': 340},
+    ),
+    AnimalTimelineEvent(
+      id: _uuid.v4(),
+      animalId: 'an-001',
+      farmId: farmId,
+      type: TimelineEventType.weightRecord,
+      title: 'Weight 360 kg',
+      date: now.subtract(const Duration(days: 45)),
+      meta: {'weight': 360},
     ),
     AnimalTimelineEvent(
       id: _uuid.v4(),

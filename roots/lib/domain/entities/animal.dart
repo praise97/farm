@@ -13,6 +13,9 @@ class Animal extends Equatable {
   final double weight;
   final String? colour;
   final String? photoUrl;
+  final String? photo1Url;
+  final String? photo2Url;
+  final DateTime? photosUpdatedAt;
   final String currentOwner;
   final String? location;
   final AnimalStatus status;
@@ -31,6 +34,9 @@ class Animal extends Equatable {
     required this.weight,
     this.colour,
     this.photoUrl,
+    this.photo1Url,
+    this.photo2Url,
+    this.photosUpdatedAt,
     required this.currentOwner,
     this.location,
     required this.status,
@@ -57,6 +63,14 @@ class Animal extends Equatable {
     return m == 0 ? '$y yr' : '$y yr $m mo';
   }
 
+  bool get needsPhotoRefresh {
+    if (status == AnimalStatus.dead || status == AnimalStatus.sold) return false;
+    if (photosUpdatedAt == null) return true;
+    return DateTime.now().difference(photosUpdatedAt!).inDays >= 365;
+  }
+
+  bool get isTerminal => status == AnimalStatus.dead || status == AnimalStatus.sold;
+
   Animal copyWith({
     String? tagNumber,
     String? qrCode,
@@ -67,6 +81,12 @@ class Animal extends Equatable {
     double? weight,
     String? colour,
     String? photoUrl,
+    String? photo1Url,
+    String? photo2Url,
+    DateTime? photosUpdatedAt,
+    bool clearPhoto1 = false,
+    bool clearPhoto2 = false,
+    bool clearPhotosUpdatedAt = false,
     String? currentOwner,
     String? location,
     AnimalStatus? status,
@@ -84,6 +104,10 @@ class Animal extends Equatable {
       weight: weight ?? this.weight,
       colour: colour ?? this.colour,
       photoUrl: photoUrl ?? this.photoUrl,
+      photo1Url: clearPhoto1 ? null : (photo1Url ?? this.photo1Url),
+      photo2Url: clearPhoto2 ? null : (photo2Url ?? this.photo2Url),
+      photosUpdatedAt:
+          clearPhotosUpdatedAt ? null : (photosUpdatedAt ?? this.photosUpdatedAt),
       currentOwner: currentOwner ?? this.currentOwner,
       location: location ?? this.location,
       status: status ?? this.status,
@@ -103,7 +127,10 @@ class Animal extends Equatable {
         'birthDate': birthDate.toIso8601String(),
         'weight': weight,
         'colour': colour,
-        'photoUrl': photoUrl,
+        'photoUrl': photoUrl ?? photo1Url,
+        'photo1Url': photo1Url,
+        'photo2Url': photo2Url,
+        'photosUpdatedAt': photosUpdatedAt?.toIso8601String(),
         'currentOwner': currentOwner,
         'location': location,
         'status': status.name,
@@ -123,6 +150,11 @@ class Animal extends Equatable {
         weight: (map['weight'] as num).toDouble(),
         colour: map['colour'] as String?,
         photoUrl: map['photoUrl'] as String?,
+        photo1Url: map['photo1Url'] as String? ?? map['photoUrl'] as String?,
+        photo2Url: map['photo2Url'] as String?,
+        photosUpdatedAt: map['photosUpdatedAt'] != null
+            ? DateTime.tryParse(map['photosUpdatedAt'] as String)
+            : null,
         currentOwner: map['currentOwner'] as String,
         location: map['location'] as String?,
         status: AnimalStatus.values.byName(map['status'] as String),

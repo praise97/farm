@@ -5,6 +5,7 @@ import '../../core/offline/local_store.dart';
 import '../../core/offline/sync_coordinator.dart';
 import '../../core/offline/sync_service.dart';
 import '../../core/permissions/permissions.dart';
+import '../../core/services/weather_service.dart';
 import '../../data/repositories/app_repository.dart';
 import '../../domain/entities/animal.dart';
 import '../../domain/entities/crop_entities.dart';
@@ -128,6 +129,8 @@ class AuthController extends StateNotifier<AsyncValue<FarmUser?>> {
       }
       state = AsyncValue.data(user);
       await _ref.read(syncStatusProvider.notifier).refresh();
+      _ref.read(dataVersionProvider.notifier).state++;
+      await _repo.scanVaccinationDue(user.farmId);
       _ref.read(dataVersionProvider.notifier).state++;
       return null;
     } catch (e) {
@@ -267,4 +270,16 @@ final workersProvider = Provider<List<FarmUser>>((ref) {
 
 final unreadAlertsProvider = Provider<int>((ref) {
   return ref.watch(alertsProvider).where((a) => !a.read).length;
+});
+
+final weatherProvider = FutureProvider<WeatherForecast>((ref) async {
+  final store = ref.watch(localStoreProvider);
+  return WeatherService.instance.fetch(lat: store.weatherLat, lon: store.weatherLon);
+});
+
+final vaccinationsDueProvider = Provider<List<VaccinationDueInfo>>((ref) {
+  ref.watch(dataVersionProvider);
+  final user = ref.watch(authStateProvider).valueOrNull;
+  if (user == null) return [];
+  return ref.watch(appRepositoryProvider).vaccinationStatus(user.farmId);
 });

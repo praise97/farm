@@ -3,12 +3,22 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme/roots_theme.dart';
+import '../../core/tour/app_tour.dart';
 import '../providers/app_providers.dart';
 
-class AppShell extends ConsumerWidget {
+class AppShell extends ConsumerStatefulWidget {
   const AppShell({super.key, required this.child});
 
   final Widget child;
+
+  @override
+  ConsumerState<AppShell> createState() => _AppShellState();
+}
+
+class _AppShellState extends ConsumerState<AppShell> {
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
+
+  void _openDrawer() => _scaffoldKey.currentState?.openDrawer();
 
   static const destinations = <_NavItem>[
     _NavItem('Dashboard', Icons.grid_view_rounded, Icons.grid_view_rounded, '/dashboard'),
@@ -26,7 +36,7 @@ class AppShell extends ConsumerWidget {
   ];
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
     final isDesktop = width >= 900;
     final location = GoRouterState.of(context).uri.toString();
@@ -35,8 +45,8 @@ class AppShell extends ConsumerWidget {
 
     void onSelect(String path) {
       context.go(path);
-      if (!isDesktop && Navigator.of(context).canPop()) {
-        Navigator.of(context).pop();
+      if (!isDesktop) {
+        _scaffoldKey.currentState?.closeDrawer();
       }
     }
 
@@ -58,16 +68,33 @@ class AppShell extends ConsumerWidget {
       return Scaffold(
         body: Row(
           children: [
-            SizedBox(width: 280, child: sidebar),
-            Expanded(child: child),
+            tourTarget(
+              key: TourKeys.menu,
+              title: 'Navigation',
+              description: 'Use this sidebar to open Dashboard, Livestock, Crops, Finance, Alerts and more.',
+              child: SizedBox(width: 280, child: sidebar),
+            ),
+            Expanded(child: widget.child),
           ],
         ),
       );
     }
 
     return Scaffold(
+      key: _scaffoldKey,
       appBar: AppBar(
         title: Text(_titleForLocation(location)),
+        leading: tourTarget(
+          key: TourKeys.menu,
+          title: 'Menu',
+          description: 'Tap to open the sidebar — livestock, crops, finance, alerts and settings.',
+          onTargetClick: _openDrawer,
+          child: IconButton(
+            icon: const Icon(Icons.menu),
+            tooltip: 'Open menu',
+            onPressed: _openDrawer,
+          ),
+        ),
         actions: [
           IconButton(
             tooltip: 'Search',
@@ -94,7 +121,7 @@ class AppShell extends ConsumerWidget {
         ),
         child: sidebar,
       ),
-      body: child,
+      body: widget.child,
     );
   }
 
@@ -158,7 +185,6 @@ class _AuraSidebar extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Brand header
               Row(
                 children: [
                   Container(
@@ -215,7 +241,6 @@ class _AuraSidebar extends StatelessWidget {
               const SizedBox(height: 14),
               const Divider(color: Color(0xFF2A3531), height: 1),
               const SizedBox(height: 14),
-
               Expanded(
                 child: ListView(
                   padding: EdgeInsets.zero,
@@ -245,7 +270,6 @@ class _AuraSidebar extends StatelessWidget {
                   ],
                 ),
               ),
-
               Material(
                 color: Colors.transparent,
                 child: InkWell(

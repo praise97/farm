@@ -99,6 +99,7 @@ enum AlertType {
   animalMissing,
   weightLoss,
   readyForSale,
+  photoRefreshDue,
   lowStock,
   expiredItem,
   nearExpiry,

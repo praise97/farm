@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:showcaseview/showcaseview.dart';
 
+import 'core/notifications/notification_service.dart';
 import 'core/offline/local_store.dart';
-import 'core/offline/sync_coordinator.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/roots_theme.dart';
 import 'data/seed/demo_seed.dart';
@@ -15,6 +16,7 @@ Future<void> main() async {
   await seedDemoData();
   await initializeFirebase();
   await restoreFirebaseSession();
+  await NotificationService.instance.init();
 
   runApp(const ProviderScope(child: RootsApp()));
 }
@@ -27,14 +29,16 @@ class RootsApp extends ConsumerWidget {
     final router = ref.watch(routerProvider);
     final themeMode = ref.watch(themeModeProvider);
 
-    return SyncBootstrap(
-      child: MaterialApp.router(
-        title: 'Roots',
-        debugShowCheckedModeBanner: false,
-        theme: RootsTheme.light(),
-        darkTheme: RootsTheme.dark(),
-        themeMode: themeMode,
-        routerConfig: router,
+    return ShowCaseWidget(
+      builder: (context) => SyncBootstrap(
+        child: MaterialApp.router(
+          title: 'Roots',
+          debugShowCheckedModeBanner: false,
+          theme: RootsTheme.light(),
+          darkTheme: RootsTheme.dark(),
+          themeMode: themeMode,
+          routerConfig: router,
+        ),
       ),
     );
   }
@@ -53,7 +57,7 @@ class _SyncBootstrapState extends ConsumerState<SyncBootstrap> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       final coordinator = ref.read(syncCoordinatorProvider);
       coordinator.onSynced = () {
         ref.read(syncStatusProvider.notifier).refresh();
@@ -61,6 +65,14 @@ class _SyncBootstrapState extends ConsumerState<SyncBootstrap> {
       };
       coordinator.start();
       ref.read(syncStatusProvider.notifier).refresh();
+
+      final user = ref.read(authStateProvider).valueOrNull;
+      if (user != null) {
+        final repo = ref.read(appRepositoryProvider);
+        final vax = await repo.scanVaccinationDue(user.farmId);
+        final photos = await repo.scanPhotoRefreshDue(user.farmId);
+        if (vax > 0 || photos > 0) bumpData(ref);
+      }
     });
   }
 

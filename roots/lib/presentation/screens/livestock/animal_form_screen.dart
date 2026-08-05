@@ -6,6 +6,7 @@ import '../../../core/constants/enums.dart';
 import '../../../core/theme/roots_theme.dart';
 import '../../../domain/entities/animal.dart';
 import '../../providers/app_providers.dart';
+import '../../widgets/animal_photo_capture.dart';
 
 class AnimalFormScreen extends ConsumerStatefulWidget {
   const AnimalFormScreen({super.key, this.animalId});
@@ -29,26 +30,29 @@ class _AnimalFormScreenState extends ConsumerState<AnimalFormScreen> {
   AnimalStatus _status = AnimalStatus.alive;
   DateTime _birthDate = DateTime.now().subtract(const Duration(days: 365));
   bool _saving = false;
+  String? _photo1Path;
+  String? _photo2Path;
+  Animal? _existing;
 
   @override
   void initState() {
     super.initState();
-    final existing = widget.animalId == null
+    _existing = widget.animalId == null
         ? null
         : ref.read(appRepositoryProvider).animal(widget.animalId!);
-    _tag = TextEditingController(text: existing?.tagNumber ?? '');
-    _breed = TextEditingController(text: existing?.breed ?? '');
-    _category = TextEditingController(text: existing?.category ?? 'Cattle');
-    _weight = TextEditingController(text: existing?.weight.toString() ?? '');
-    _colour = TextEditingController(text: existing?.colour ?? '');
-    _location = TextEditingController(text: existing?.location ?? '');
+    _tag = TextEditingController(text: _existing?.tagNumber ?? '');
+    _breed = TextEditingController(text: _existing?.breed ?? '');
+    _category = TextEditingController(text: _existing?.category ?? 'Cattle');
+    _weight = TextEditingController(text: _existing?.weight.toString() ?? '');
+    _colour = TextEditingController(text: _existing?.colour ?? '');
+    _location = TextEditingController(text: _existing?.location ?? '');
     _owner = TextEditingController(
-      text: existing?.currentOwner ?? ref.read(authStateProvider).valueOrNull?.name ?? '',
+      text: _existing?.currentOwner ?? ref.read(authStateProvider).valueOrNull?.name ?? '',
     );
-    if (existing != null) {
-      _gender = existing.gender;
-      _status = existing.status;
-      _birthDate = existing.birthDate;
+    if (_existing != null) {
+      _gender = _existing!.gender;
+      _status = _existing!.status;
+      _birthDate = _existing!.birthDate;
     }
   }
 
@@ -66,13 +70,24 @@ class _AnimalFormScreenState extends ConsumerState<AnimalFormScreen> {
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
+
+    final isNew = _existing == null;
+    final photosEnabled = _status != AnimalStatus.dead && _status != AnimalStatus.sold;
+    if (isNew && photosEnabled) {
+      if (_photo1Path == null || _photo2Path == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please capture both photos (front and side).')),
+        );
+        return;
+      }
+    }
+
     setState(() => _saving = true);
     final user = ref.read(authStateProvider).valueOrNull!;
     final repo = ref.read(appRepositoryProvider);
-    final existing = widget.animalId == null ? null : repo.animal(widget.animalId!);
     final now = DateTime.now();
-    final animal = Animal(
-      id: existing?.id ?? repo.newId(),
+    var animal = Animal(
+      id: _existing?.id ?? repo.newId(),
       farmId: user.farmId,
       tagNumber: _tag.text.trim(),
       qrCode: _tag.text.trim(),
@@ -82,14 +97,27 @@ class _AnimalFormScreenState extends ConsumerState<AnimalFormScreen> {
       birthDate: _birthDate,
       weight: double.parse(_weight.text.trim()),
       colour: _colour.text.trim().isEmpty ? null : _colour.text.trim(),
+      photo1Url: _existing?.photo1Url,
+      photo2Url: _existing?.photo2Url,
+      photosUpdatedAt: _existing?.photosUpdatedAt,
       currentOwner: _owner.text.trim(),
       location: _location.text.trim().isEmpty ? null : _location.text.trim(),
       status: _status,
       updatedAt: now,
-      createdAt: existing?.createdAt ?? now,
+      createdAt: _existing?.createdAt ?? now,
     );
-    await repo.saveAnimal(animal);
-    if (existing == null) {
+
+    animal = await repo.saveAnimal(animal, previous: _existing);
+
+    if (photosEnabled && (_photo1Path != null || _photo2Path != null)) {
+      animal = await repo.saveAnimalPhotos(
+        animal: animal,
+        photo1LocalPath: _photo1Path,
+        photo2LocalPath: _photo2Path,
+      );
+    }
+
+    if (_existing == null) {
       await repo.addTimelineEvent(AnimalTimelineEvent(
         id: repo.newId(),
         animalId: animal.id,
@@ -100,13 +128,17 @@ class _AnimalFormScreenState extends ConsumerState<AnimalFormScreen> {
         date: now,
       ));
     }
+
     bumpData(ref);
     if (!mounted) return;
+    setState(() => _saving = false);
     context.go('/livestock/${animal.id}');
   }
 
   @override
   Widget build(BuildContext context) {
+    final photosEnabled = _status != AnimalStatus.dead && _status != AnimalStatus.sold;
+
     return Scaffold(
       appBar: AppBar(title: Text(widget.animalId == null ? 'Add Animal' : 'Edit Animal')),
       body: Center(
@@ -117,6 +149,24 @@ class _AnimalFormScreenState extends ConsumerState<AnimalFormScreen> {
             child: ListView(
               padding: const EdgeInsets.all(20),
               children: [
+                if (photosEnabled)
+                  AnimalPhotoCaptureRow(
+                    photo1Path: _photo1Path,
+                    photo2Path: _photo2Path,
+                    existingPhoto1Url: _existing?.photo1Url,
+                    existingPhoto2Url: _existing?.photo2Url,
+                    onPhoto1: (p) => setState(() => _photo1Path = p),
+                    onPhoto2: (p) => setState(() => _photo2Path = p),
+                  )
+                else
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 16),
+                    child: Text(
+                      'Photos removed — animal marked dead or sold to free storage.',
+                      style: TextStyle(color: RootsColors.muted, fontSize: 13),
+                    ),
+                  ),
+                if (photosEnabled) const SizedBox(height: 20),
                 TextFormField(
                   controller: _tag,
                   decoration: const InputDecoration(labelText: 'Tag Number', prefixIcon: Icon(Icons.qr_code)),
@@ -159,11 +209,22 @@ class _AnimalFormScreenState extends ConsumerState<AnimalFormScreen> {
                     ),
                   ],
                 ),
+                if (_status == AnimalStatus.dead || _status == AnimalStatus.sold)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      _status == AnimalStatus.dead
+                          ? 'Marking dead deletes all photos from Firebase storage.'
+                          : 'Marking sold deletes all photos from Firebase storage.',
+                      style: const TextStyle(color: RootsColors.orange, fontSize: 12),
+                    ),
+                  ),
                 const SizedBox(height: 12),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   title: const Text('Birth Date'),
-                  subtitle: Text('${_birthDate.year}-${_birthDate.month.toString().padLeft(2, '0')}-${_birthDate.day.toString().padLeft(2, '0')}'),
+                  subtitle: Text(
+                      '${_birthDate.year}-${_birthDate.month.toString().padLeft(2, '0')}-${_birthDate.day.toString().padLeft(2, '0')}'),
                   trailing: const Icon(Icons.calendar_month),
                   onTap: () async {
                     final picked = await showDatePicker(
@@ -193,11 +254,6 @@ class _AnimalFormScreenState extends ConsumerState<AnimalFormScreen> {
                   child: _saving
                       ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
                       : const Text('Save Animal'),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Age is calculated automatically from birth date. QR code uses the tag number.',
-                  style: TextStyle(color: RootsColors.muted, fontSize: 12),
                 ),
               ],
             ),

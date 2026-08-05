@@ -94,8 +94,8 @@ class LocalStore {
 
   int get pendingSyncCount => box(HiveBoxes.syncQueue).length;
 
-  bool get seeded => prefs.getBool('seeded_v2') ?? false;
-  Future<void> setSeeded() async => prefs.setBool('seeded_v2', true);
+  bool get seeded => prefs.getBool('seeded_v3') ?? false;
+  Future<void> setSeeded() async => prefs.setBool('seeded_v3', true);
 
   String? get sessionUserId => prefs.getString('sessionUserId');
   Future<void> setSessionUserId(String? id) async {
@@ -108,4 +108,20 @@ class LocalStore {
 
   bool get darkMode => prefs.getBool('darkMode') ?? false;
   Future<void> setDarkMode(bool v) async => prefs.setBool('darkMode', v);
+
+  bool get appTourSeen => prefs.getBool('appTourSeen_v1') ?? false;
+  Future<void> setAppTourSeen([bool v = true]) async =>
+      prefs.setBool('appTourSeen_v1', v);
+
+  bool get notificationsEnabled => prefs.getBool('notificationsEnabled') ?? true;
+  Future<void> setNotificationsEnabled(bool v) async =>
+      prefs.setBool('notificationsEnabled', v);
+
+  /// Default farm coords (Harare) — override later from settings/GPS.
+  double get weatherLat => prefs.getDouble('weatherLat') ?? -17.8252;
+  double get weatherLon => prefs.getDouble('weatherLon') ?? 31.0335;
+  Future<void> setWeatherCoords(double lat, double lon) async {
+    await prefs.setDouble('weatherLat', lat);
+    await prefs.setDouble('weatherLon', lon);
+  }
 }
