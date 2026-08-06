@@ -88,7 +88,7 @@ enum ExpenseCategory {
 
 enum TaskPriority { low, medium, high, urgent }
 
-enum TaskStatus { pending, inProgress, completed, cancelled }
+enum TaskStatus { pending, inProgress, awaitingReview, completed, cancelled }
 
 enum AlertType {
   vaccinationDue,
@@ -100,6 +100,8 @@ enum AlertType {
   weightLoss,
   readyForSale,
   photoRefreshDue,
+  taskAssigned,
+  taskReviewed,
   lowStock,
   expiredItem,
   nearExpiry,

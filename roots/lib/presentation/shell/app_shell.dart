@@ -55,11 +55,15 @@ class _AppShellState extends ConsumerState<AppShell> {
       if (context.mounted) context.go('/login');
     }
 
+    final perms = ref.watch(permissionsProvider);
+    final isSupervisor = perms?.isSupervisor ?? false;
+
     final sidebar = _AuraSidebar(
       selectedPath: location,
       unread: unread,
       userName: user?.name ?? 'Guest',
       showAll: isDesktop,
+      isSupervisor: isSupervisor,
       onSelect: onSelect,
       onLogout: onLogout,
     );
@@ -148,6 +152,7 @@ class _AuraSidebar extends StatelessWidget {
     required this.unread,
     required this.userName,
     required this.showAll,
+    required this.isSupervisor,
     required this.onSelect,
     required this.onLogout,
   });
@@ -156,6 +161,7 @@ class _AuraSidebar extends StatelessWidget {
   final int unread;
   final String userName;
   final bool showAll;
+  final bool isSupervisor;
   final ValueChanged<String> onSelect;
   final VoidCallback onLogout;
 
@@ -248,24 +254,36 @@ class _AuraSidebar extends StatelessWidget {
                     _tile(
                       const _NavItem('Dashboard', Icons.grid_view_rounded, Icons.grid_view_rounded, '/dashboard'),
                     ),
-                    _section('MANAGEMENT'),
-                    _tile(const _NavItem('Livestock', Icons.pets_outlined, Icons.pets, '/livestock')),
-                    _tile(const _NavItem('Crops', Icons.grass_outlined, Icons.grass, '/crops')),
-                    _tile(const _NavItem('Inventory', Icons.inventory_2_outlined, Icons.inventory_2, '/inventory')),
+                    if (isSupervisor) ...[
+                      _section('MANAGEMENT'),
+                      _tile(const _NavItem('Livestock', Icons.pets_outlined, Icons.pets, '/livestock')),
+                      _tile(const _NavItem('Crops', Icons.grass_outlined, Icons.grass, '/crops')),
+                      _tile(const _NavItem('Inventory', Icons.inventory_2_outlined, Icons.inventory_2, '/inventory')),
+                    ] else ...[
+                      _section('MY WORK'),
+                      _tile(const _NavItem('Livestock', Icons.pets_outlined, Icons.pets, '/livestock')),
+                      _tile(const _NavItem('Staff', Icons.groups_outlined, Icons.groups, '/workers')),
+                    ],
                     _tile(const _NavItem('Tasks', Icons.task_alt_outlined, Icons.task_alt, '/tasks')),
-                    _section('OPERATIONS'),
-                    _tile(const _NavItem('Equipment', Icons.agriculture_outlined, Icons.agriculture, '/equipment')),
-                    _tile(const _NavItem('Finance', Icons.payments_outlined, Icons.payments, '/finance')),
-                    if (showAll) ...[
-                      _tile(const _NavItem('Map', Icons.map_outlined, Icons.map, '/map')),
-                      _tile(const _NavItem('Reports', Icons.assessment_outlined, Icons.assessment, '/reports')),
-                      _tile(const _NavItem('Workers', Icons.groups_outlined, Icons.groups, '/workers')),
+                    if (isSupervisor) ...[
+                      _section('OPERATIONS'),
+                      _tile(const _NavItem('Equipment', Icons.agriculture_outlined, Icons.agriculture, '/equipment')),
+                      _tile(const _NavItem('Finance', Icons.payments_outlined, Icons.payments, '/finance')),
+                      if (showAll) ...[
+                        _tile(const _NavItem('Map', Icons.map_outlined, Icons.map, '/map')),
+                        _tile(const _NavItem('Reports', Icons.assessment_outlined, Icons.assessment, '/reports')),
+                        _tile(const _NavItem('Workers', Icons.groups_outlined, Icons.groups, '/workers')),
+                      ],
                     ],
                     _section('ACCOUNT'),
                     _tile(
                       const _NavItem('Alerts', Icons.notifications_outlined, Icons.notifications, '/alerts'),
                       badge: unread,
                     ),
+                    if (isSupervisor && !showAll)
+                      _tile(const _NavItem('Workers', Icons.groups_outlined, Icons.groups, '/workers')),
+                    if (isSupervisor && !showAll)
+                      _tile(const _NavItem('Reports', Icons.assessment_outlined, Icons.assessment, '/reports')),
                     _tile(const _NavItem('Settings', Icons.settings_outlined, Icons.settings, '/settings')),
                   ],
                 ),

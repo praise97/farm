@@ -166,6 +166,16 @@ class AuthController extends StateNotifier<AsyncValue<FarmUser?>> {
   }
 
   void refresh() => state = AsyncValue.data(_repo.currentUser());
+
+  Future<String?> changePassword(String currentPassword, String newPassword) async {
+    final user = state.valueOrNull;
+    if (user == null) return 'Not signed in';
+    return _repo.changePassword(
+      userId: user.id,
+      currentPassword: currentPassword,
+      newPassword: newPassword,
+    );
+  }
 }
 
 final permissionsProvider = Provider<Permissions?>((ref) {
@@ -233,6 +243,29 @@ final tasksProvider = Provider<List<FarmTask>>((ref) {
   return ref.watch(appRepositoryProvider).tasks(user.farmId);
 });
 
+final myTasksProvider = Provider<List<FarmTask>>((ref) {
+  ref.watch(dataVersionProvider);
+  final user = ref.watch(authStateProvider).valueOrNull;
+  final perms = ref.watch(permissionsProvider);
+  if (user == null) return [];
+  if (perms?.canViewAllTasks == true) {
+    return ref.watch(tasksProvider);
+  }
+  return ref.watch(appRepositoryProvider).tasksForWorker(user.farmId, user.id);
+});
+
+final userAlertsProvider = Provider<List<FarmAlert>>((ref) {
+  ref.watch(dataVersionProvider);
+  final user = ref.watch(authStateProvider).valueOrNull;
+  final perms = ref.watch(permissionsProvider);
+  if (user == null) return [];
+  return ref.watch(appRepositoryProvider).alertsForUser(
+        user.farmId,
+        user.id,
+        isSupervisor: perms?.isSupervisor ?? false,
+      );
+});
+
 final cropsProvider = Provider<List<CropPlot>>((ref) {
   ref.watch(dataVersionProvider);
   final user = ref.watch(authStateProvider).valueOrNull;
@@ -255,10 +288,11 @@ final cropCatalogProvider = Provider<List<CropCatalogItem>>((ref) {
 });
 
 final alertsProvider = Provider<List<FarmAlert>>((ref) {
-  ref.watch(dataVersionProvider);
-  final user = ref.watch(authStateProvider).valueOrNull;
-  if (user == null) return [];
-  return ref.watch(appRepositoryProvider).alerts(user.farmId);
+  return ref.watch(userAlertsProvider);
+});
+
+final unreadAlertsProvider = Provider<int>((ref) {
+  return ref.watch(userAlertsProvider).where((a) => !a.read).length;
 });
 
 final workersProvider = Provider<List<FarmUser>>((ref) {
@@ -266,10 +300,6 @@ final workersProvider = Provider<List<FarmUser>>((ref) {
   final user = ref.watch(authStateProvider).valueOrNull;
   if (user == null) return [];
   return ref.watch(appRepositoryProvider).workers(user.farmId);
-});
-
-final unreadAlertsProvider = Provider<int>((ref) {
-  return ref.watch(alertsProvider).where((a) => !a.read).length;
 });
 
 final weatherProvider = FutureProvider<WeatherForecast>((ref) async {

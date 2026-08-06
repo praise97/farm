@@ -72,62 +72,6 @@ class MapScreen extends StatelessWidget {
       };
 }
 
-class ReportsScreen extends ConsumerWidget {
-  const ReportsScreen({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final animals = ref.watch(animalsProvider);
-    final equipment = ref.watch(equipmentProvider);
-    final inventory = ref.watch(inventoryProvider);
-    final finance = ref.watch(financeProvider);
-    final crops = ref.watch(cropsProvider);
-
-    final reports = [
-      ('Livestock Report', '${animals.length} animals', Icons.pets, '/livestock'),
-      ('Equipment Report', '${equipment.length} assets', Icons.agriculture, '/equipment'),
-      ('Inventory Report', '${inventory.length} items · \$${inventory.fold<double>(0, (s, i) => s + i.stockValue).toStringAsFixed(0)} value', Icons.inventory_2, '/inventory'),
-      ('Financial Report', '${finance.length} entries', Icons.assessment, '/finance'),
-      ('Crop Report', '${crops.length} plots', Icons.grass, '/crops'),
-      ('Weather Report', 'Harare forecast snapshot', Icons.cloud, '/map'),
-    ];
-
-    return Scaffold(
-      body: ListView(
-        padding: const EdgeInsets.all(20),
-        children: [
-          const Text('Reports & Export', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800)),
-          const SizedBox(height: 8),
-          const Text('Generate PDF, Excel and CSV exports for farm records.',
-              style: TextStyle(color: RootsColors.muted)),
-          const SizedBox(height: 16),
-          ...reports.map((r) => Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: RootsCard(
-                  onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('${r.$1}: export helpers ready (pdf/excel/csv packages included).')),
-                    );
-                    context.go(r.$4);
-                  },
-                  child: ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: CircleAvatar(
-                      backgroundColor: RootsColors.mintCard,
-                      child: Icon(r.$3, color: RootsColors.greenDeep),
-                    ),
-                    title: Text(r.$1, style: const TextStyle(fontWeight: FontWeight.w800)),
-                    subtitle: Text(r.$2),
-                    trailing: const Icon(Icons.file_download_outlined),
-                  ),
-                ),
-              )),
-        ],
-      ),
-    );
-  }
-}
-
 class WorkersScreen extends ConsumerWidget {
   const WorkersScreen({super.key});
 
@@ -135,22 +79,27 @@ class WorkersScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final workers = ref.watch(workersProvider);
     final perms = ref.watch(permissionsProvider);
+    final isSupervisor = perms?.canCreateWorkerAccounts ?? false;
 
     return Scaffold(
-      floatingActionButton: perms?.canInviteWorkers == true
+      floatingActionButton: isSupervisor
           ? FloatingActionButton.extended(
-              onPressed: () => _invite(context, ref),
+              onPressed: () => _createAccount(context, ref),
               icon: const Icon(Icons.person_add),
-              label: const Text('Invite Worker'),
+              label: const Text('Create Account'),
             )
           : null,
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          const Text('User Accounts', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800)),
+          const Text('Staff & User Accounts', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800)),
           const SizedBox(height: 8),
-          const Text('Each farm has one Owner. Managers and Workers have different permissions.',
-              style: TextStyle(color: RootsColors.muted)),
+          Text(
+            isSupervisor
+                ? 'Create worker (pwd 12345) or admin/supervisor (pwd admin123). All can reset in Settings.'
+                : 'Your farm team — contact your supervisor for account changes.',
+            style: const TextStyle(color: RootsColors.muted),
+          ),
           const SizedBox(height: 16),
           ...workers.map((w) => Padding(
                 padding: const EdgeInsets.only(bottom: 10),
@@ -162,10 +111,14 @@ class WorkersScreen extends ConsumerWidget {
                       child: Text(w.initials, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
                     ),
                     title: Text(w.name, style: const TextStyle(fontWeight: FontWeight.w800)),
-                    subtitle: Text('${w.email}\n${w.role.label}'),
+                    subtitle: Text(
+                      '${w.email}\n${w.role.label}'
+                      '${w.role == UserRole.worker ? ' · default pwd 12345' : ''}'
+                      '${w.role == UserRole.manager ? ' · default pwd admin123' : ''}',
+                    ),
                     isThreeLine: true,
                     trailing: StatusChip(
-                      label: w.role.label,
+                      label: w.role == UserRole.owner || w.role == UserRole.manager ? 'Supervisor' : 'Worker',
                       color: w.role == UserRole.owner
                           ? RootsColors.greenDeep
                           : w.role == UserRole.manager
@@ -180,46 +133,73 @@ class WorkersScreen extends ConsumerWidget {
     );
   }
 
-  Future<void> _invite(BuildContext context, WidgetRef ref) async {
+  Future<void> _createAccount(BuildContext context, WidgetRef ref) async {
     final name = TextEditingController();
     final email = TextEditingController();
     var role = UserRole.worker;
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setLocal) => AlertDialog(
-          title: const Text('Invite worker'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(controller: name, decoration: const InputDecoration(labelText: 'Name')),
-              TextField(controller: email, decoration: const InputDecoration(labelText: 'Email')),
-              DropdownButtonFormField<UserRole>(
-                value: role,
-                items: [UserRole.manager, UserRole.worker]
-                    .map((r) => DropdownMenuItem(value: r, child: Text(r.label)))
-                    .toList(),
-                onChanged: (v) => setLocal(() => role = v!),
-                decoration: const InputDecoration(labelText: 'Role'),
-              ),
+        builder: (ctx, setLocal) {
+          final defaultPwd = role == UserRole.worker ? '12345' : 'admin123';
+          return AlertDialog(
+            title: const Text('Create user account'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Default password: $defaultPwd\nUser can change it in Settings after first login.',
+                  style: const TextStyle(color: RootsColors.muted, fontSize: 12),
+                ),
+                const SizedBox(height: 12),
+                TextField(controller: name, decoration: const InputDecoration(labelText: 'Full name')),
+                TextField(
+                  controller: email,
+                  decoration: const InputDecoration(labelText: 'Email'),
+                  keyboardType: TextInputType.emailAddress,
+                ),
+                DropdownButtonFormField<UserRole>(
+                  key: ValueKey(role),
+                  initialValue: role,
+                  items: const [
+                    DropdownMenuItem(value: UserRole.worker, child: Text('Worker (non-admin)')),
+                    DropdownMenuItem(value: UserRole.manager, child: Text('Admin / Supervisor')),
+                  ],
+                  onChanged: (v) => setLocal(() => role = v!),
+                  decoration: const InputDecoration(labelText: 'Role'),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+              FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Create')),
             ],
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Invite')),
-          ],
-        ),
+          );
+        },
       ),
     );
-    if (ok != true) return;
-    final user = ref.read(authStateProvider).valueOrNull!;
-    await ref.read(appRepositoryProvider).addWorker(
-          farmId: user.farmId,
-          name: name.text.trim(),
-          email: email.text.trim(),
-          role: role,
+    if (ok != true || name.text.trim().isEmpty || !email.text.contains('@')) return;
+    final supervisor = ref.read(authStateProvider).valueOrNull!;
+    final defaultPwd = role == UserRole.worker ? '12345' : 'admin123';
+    try {
+      await ref.read(appRepositoryProvider).createWorkerAccount(
+            farmId: supervisor.farmId,
+            name: name.text.trim(),
+            email: email.text.trim(),
+            role: role,
+            createdById: supervisor.id,
+          );
+      bumpData(ref);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Account created. ${name.text.trim()} can log in with password $defaultPwd')),
         );
-    bumpData(ref);
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+      }
+    }
   }
 }
 
@@ -229,6 +209,7 @@ class SettingsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(authStateProvider).valueOrNull;
+    final perms = ref.watch(permissionsProvider);
     final theme = ref.watch(themeModeProvider);
     final syncStatus = ref.watch(syncStatusProvider);
 
@@ -248,6 +229,18 @@ class SettingsScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 12),
+          ListTile(
+            leading: const Icon(Icons.lock_reset),
+            title: const Text('Change password'),
+            subtitle: Text(
+              perms?.isWorker == true
+                  ? 'Workers: default was 12345 — set your own password here'
+                  : perms?.isManager == true
+                      ? 'Admins: default was admin123 — set your own password here'
+                      : 'Update your login password',
+            ),
+            onTap: () => _changePasswordDialog(context, ref),
+          ),
           SwitchListTile(
             title: const Text('Dark mode'),
             value: theme == ThemeMode.dark,
@@ -295,6 +288,57 @@ class SettingsScreen extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+Future<void> _changePasswordDialog(BuildContext context, WidgetRef ref) async {
+  final current = TextEditingController();
+  final next = TextEditingController();
+  final confirm = TextEditingController();
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('Change password'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: current,
+            obscureText: true,
+            decoration: const InputDecoration(labelText: 'Current password'),
+          ),
+          TextField(
+            controller: next,
+            obscureText: true,
+            decoration: const InputDecoration(labelText: 'New password'),
+          ),
+          TextField(
+            controller: confirm,
+            obscureText: true,
+            decoration: const InputDecoration(labelText: 'Confirm new password'),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+        FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Save')),
+      ],
+    ),
+  );
+  if (ok != true) return;
+  if (next.text != confirm.text) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('New passwords do not match')),
+      );
+    }
+    return;
+  }
+  final err = await ref.read(authStateProvider.notifier).changePassword(current.text, next.text);
+  if (context.mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(err ?? 'Password updated')),
     );
   }
 }

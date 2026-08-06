@@ -48,6 +48,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(authStateProvider).valueOrNull;
+    final perms = ref.watch(permissionsProvider);
+    final myTasks = ref.watch(myTasksProvider);
+    final isWorker = perms?.isWorker ?? false;
     final animals = ref.watch(animalsProvider);
     final equipment = ref.watch(equipmentProvider);
     final crops = ref.watch(cropsProvider);
@@ -116,6 +119,41 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   const SizedBox(height: 8),
                 ],
                 const SizedBox(height: 18),
+                if (isWorker) ...[
+                  SectionHeader(
+                    title: 'My assigned tasks',
+                    actionLabel: '${myTasks.where((t) => t.status != TaskStatus.completed).length} open',
+                    onAction: () => context.go('/tasks'),
+                  ),
+                  if (myTasks.isEmpty)
+                    const RootsCard(
+                      child: Text('No tasks yet — your supervisor will assign work here.',
+                          style: TextStyle(color: RootsColors.muted)),
+                    )
+                  else
+                    for (final t in myTasks.take(4))
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: RootsCard(
+                          onTap: () => context.go('/tasks'),
+                          child: ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: Icon(
+                              t.status == TaskStatus.awaitingReview
+                                  ? Icons.hourglass_top
+                                  : Icons.assignment,
+                              color: RootsColors.greenDeep,
+                            ),
+                            title: Text(t.title, style: const TextStyle(fontWeight: FontWeight.w700)),
+                            subtitle: Text(
+                              'Due ${DateFormat.MMMd().format(t.dueDate)} · ${t.status.label}',
+                            ),
+                            trailing: const Icon(Icons.chevron_right),
+                          ),
+                        ),
+                      ),
+                  const SizedBox(height: 12),
+                ],
                 tourTarget(
                   key: TourKeys.stats,
                   title: 'Live farm stats',

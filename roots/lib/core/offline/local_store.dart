@@ -94,8 +94,8 @@ class LocalStore {
 
   int get pendingSyncCount => box(HiveBoxes.syncQueue).length;
 
-  bool get seeded => prefs.getBool('seeded_v3') ?? false;
-  Future<void> setSeeded() async => prefs.setBool('seeded_v3', true);
+  bool get seeded => prefs.getBool('seeded_v5') ?? false;
+  Future<void> setSeeded() async => prefs.setBool('seeded_v5', true);
 
   String? get sessionUserId => prefs.getString('sessionUserId');
   Future<void> setSessionUserId(String? id) async {

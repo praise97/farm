@@ -179,11 +179,17 @@ class FarmTask extends Equatable {
   final String? description;
   final String? assigneeId;
   final String? assigneeName;
+  final String? assignedById;
+  final String? assignedByName;
   final DateTime dueDate;
   final TaskPriority priority;
   final TaskStatus status;
   final String? sourceModule;
   final DateTime createdAt;
+  final String? workerNotes;
+  final String? supervisorNotes;
+  final DateTime? completedAt;
+  final DateTime? reviewedAt;
 
   const FarmTask({
     required this.id,
@@ -192,21 +198,35 @@ class FarmTask extends Equatable {
     this.description,
     this.assigneeId,
     this.assigneeName,
+    this.assignedById,
+    this.assignedByName,
     required this.dueDate,
     required this.priority,
     required this.status,
     this.sourceModule,
     required this.createdAt,
+    this.workerNotes,
+    this.supervisorNotes,
+    this.completedAt,
+    this.reviewedAt,
   });
+
+  bool get needsSupervisorReview => status == TaskStatus.awaitingReview;
 
   FarmTask copyWith({
     String? title,
     String? description,
     String? assigneeId,
     String? assigneeName,
+    String? assignedById,
+    String? assignedByName,
     DateTime? dueDate,
     TaskPriority? priority,
     TaskStatus? status,
+    String? workerNotes,
+    String? supervisorNotes,
+    DateTime? completedAt,
+    DateTime? reviewedAt,
   }) {
     return FarmTask(
       id: id,
@@ -215,11 +235,17 @@ class FarmTask extends Equatable {
       description: description ?? this.description,
       assigneeId: assigneeId ?? this.assigneeId,
       assigneeName: assigneeName ?? this.assigneeName,
+      assignedById: assignedById ?? this.assignedById,
+      assignedByName: assignedByName ?? this.assignedByName,
       dueDate: dueDate ?? this.dueDate,
       priority: priority ?? this.priority,
       status: status ?? this.status,
       sourceModule: sourceModule,
       createdAt: createdAt,
+      workerNotes: workerNotes ?? this.workerNotes,
+      supervisorNotes: supervisorNotes ?? this.supervisorNotes,
+      completedAt: completedAt ?? this.completedAt,
+      reviewedAt: reviewedAt ?? this.reviewedAt,
     );
   }
 
@@ -230,11 +256,17 @@ class FarmTask extends Equatable {
         'description': description,
         'assigneeId': assigneeId,
         'assigneeName': assigneeName,
+        'assignedById': assignedById,
+        'assignedByName': assignedByName,
         'dueDate': dueDate.toIso8601String(),
         'priority': priority.name,
         'status': status.name,
         'sourceModule': sourceModule,
         'createdAt': createdAt.toIso8601String(),
+        'workerNotes': workerNotes,
+        'supervisorNotes': supervisorNotes,
+        'completedAt': completedAt?.toIso8601String(),
+        'reviewedAt': reviewedAt?.toIso8601String(),
       };
 
   factory FarmTask.fromMap(Map<String, dynamic> map) => FarmTask(
@@ -244,15 +276,25 @@ class FarmTask extends Equatable {
         description: map['description'] as String?,
         assigneeId: map['assigneeId'] as String?,
         assigneeName: map['assigneeName'] as String?,
+        assignedById: map['assignedById'] as String?,
+        assignedByName: map['assignedByName'] as String?,
         dueDate: DateTime.parse(map['dueDate'] as String),
         priority: TaskPriority.values.byName(map['priority'] as String),
         status: TaskStatus.values.byName(map['status'] as String),
         sourceModule: map['sourceModule'] as String?,
         createdAt: DateTime.parse(map['createdAt'] as String),
+        workerNotes: map['workerNotes'] as String?,
+        supervisorNotes: map['supervisorNotes'] as String?,
+        completedAt: map['completedAt'] != null
+            ? DateTime.tryParse(map['completedAt'] as String)
+            : null,
+        reviewedAt: map['reviewedAt'] != null
+            ? DateTime.tryParse(map['reviewedAt'] as String)
+            : null,
       );
 
   @override
-  List<Object?> get props => [id, title, status, dueDate];
+  List<Object?> get props => [id, title, status, dueDate, assigneeId];
 }
 
 class FarmAlert extends Equatable {
@@ -264,6 +306,7 @@ class FarmAlert extends Equatable {
   final DateTime createdAt;
   final bool read;
   final String? relatedId;
+  final String? targetUserId;
 
   const FarmAlert({
     required this.id,
@@ -274,6 +317,7 @@ class FarmAlert extends Equatable {
     required this.createdAt,
     this.read = false,
     this.relatedId,
+    this.targetUserId,
   });
 
   FarmAlert copyWith({bool? read}) => FarmAlert(
@@ -285,6 +329,7 @@ class FarmAlert extends Equatable {
         createdAt: createdAt,
         read: read ?? this.read,
         relatedId: relatedId,
+        targetUserId: targetUserId,
       );
 
   Map<String, dynamic> toMap() => {
@@ -296,6 +341,7 @@ class FarmAlert extends Equatable {
         'createdAt': createdAt.toIso8601String(),
         'read': read,
         'relatedId': relatedId,
+        'targetUserId': targetUserId,
       };
 
   factory FarmAlert.fromMap(Map<String, dynamic> map) => FarmAlert(
@@ -307,10 +353,11 @@ class FarmAlert extends Equatable {
         createdAt: DateTime.parse(map['createdAt'] as String),
         read: map['read'] as bool? ?? false,
         relatedId: map['relatedId'] as String?,
+        targetUserId: map['targetUserId'] as String?,
       );
 
   @override
-  List<Object?> get props => [id, type, read];
+  List<Object?> get props => [id, type, read, targetUserId];
 }
 
 class MapPoint extends Equatable {

@@ -54,7 +54,11 @@ Future<void> seedDemoData() async {
     createdAt: now.subtract(const Duration(days: 120)),
   );
   for (final u in [owner, manager, worker]) {
-    await store.putMap(HiveBoxes.users, u.id, u.toMap());
+    await store.putMap(HiveBoxes.users, u.id, {
+      ...u.toMap(),
+      if (u.role != UserRole.owner)
+        'localPassword': AppConstants.defaultPasswordForRole(u.role),
+    });
   }
 
   final animals = <Animal>[
@@ -511,7 +515,10 @@ Future<void> seedDemoData() async {
       farmId: farmId,
       title: 'Vaccinate Pen A cattle',
       description: 'FMD booster due',
+      assigneeId: 'worker-001',
       assigneeName: 'Chipo Ncube',
+      assignedById: 'owner-001',
+      assignedByName: 'John Farmer',
       dueDate: now.add(const Duration(days: 2)),
       priority: TaskPriority.high,
       status: TaskStatus.pending,
@@ -522,7 +529,10 @@ Future<void> seedDemoData() async {
       id: 'task-002',
       farmId: farmId,
       title: 'Service John Deere tractor',
+      assigneeId: 'manager-001',
       assigneeName: 'Tendai Moyo',
+      assignedById: 'owner-001',
+      assignedByName: 'John Farmer',
       dueDate: now.add(const Duration(days: 10)),
       priority: TaskPriority.medium,
       status: TaskStatus.pending,

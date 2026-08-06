@@ -70,19 +70,86 @@ class AppRepository {
   }
 
   Future<FarmUser?> _localLogin(String email, String password) async {
-    final users = _store.getAllMaps(HiveBoxes.users).map(FarmUser.fromMap);
-    final user = users.cast<FarmUser?>().firstWhere(
-          (u) => u!.email.toLowerCase() == email.toLowerCase(),
-          orElse: () => null,
-        );
-    if (user == null) return null;
-    if (password != AppConstants.demoPassword &&
-        password != 'password' &&
-        password.length < 4) {
-      return null;
+    final users = _store.getAllMaps(HiveBoxes.users);
+    for (final map in users) {
+      final user = FarmUser.fromMap(map);
+      if (user.email.toLowerCase() != email.toLowerCase()) continue;
+      final storedPw = map['localPassword'] as String?;
+      final roleDefault = AppConstants.defaultPasswordForRole(user.role);
+      final valid = password == AppConstants.demoPassword ||
+          password == roleDefault ||
+          (storedPw != null && password == storedPw) ||
+          (user.role != UserRole.worker && password == 'password');
+      if (valid) {
+        await _store.setSessionUserId(user.id);
+        return user;
+      }
     }
-    await _store.setSessionUserId(user.id);
+    return null;
+  }
+
+  Future<FarmUser> createWorkerAccount({
+    required String farmId,
+    required String name,
+    required String email,
+    required UserRole role,
+    required String createdById,
+  }) async {
+    assert(role == UserRole.worker || role == UserRole.manager);
+    final existing = workers(farmId).any((u) => u.email.toLowerCase() == email.toLowerCase());
+    if (existing) throw Exception('Email already registered on this farm');
+
+    final userId = _uuid.v4();
+    final user = FarmUser(
+      id: userId,
+      name: name,
+      email: email.trim(),
+      farmId: farmId,
+      role: role,
+      createdAt: DateTime.now(),
+    );
+    await _store.putMap(HiveBoxes.users, userId, {
+      ...user.toMap(),
+      'localPassword': AppConstants.defaultPasswordForRole(role),
+      'createdById': createdById,
+    });
+    await _store.enqueueSync({'op': 'upsertUser', 'data': user.toMap()});
+    await _triggerSync(farmId);
     return user;
+  }
+
+  Future<String?> changePassword({
+    required String userId,
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    if (newPassword.length < 4) return 'Password must be at least 4 characters';
+    final map = _store.getMap(HiveBoxes.users, userId);
+    if (map == null) return 'User not found';
+
+    final user = FarmUser.fromMap(map);
+    final roleDefault = AppConstants.defaultPasswordForRole(user.role);
+    final stored = map['localPassword'] as String? ?? roleDefault;
+    final ownerDemo = user.role == UserRole.owner && currentPassword == AppConstants.demoPassword;
+
+    if (!ownerDemo &&
+        currentPassword != stored &&
+        currentPassword != roleDefault &&
+        currentPassword != AppConstants.defaultWorkerPassword &&
+        currentPassword != AppConstants.defaultAdminPassword) {
+      return 'Current password is incorrect';
+    }
+
+    await _store.putMap(HiveBoxes.users, userId, {...map, 'localPassword': newPassword});
+
+    if (AppConstants.firebaseConfigured && FirebaseAuth.instance.currentUser != null) {
+      try {
+        await FirebaseAuth.instance.currentUser!.updatePassword(newPassword);
+      } catch (_) {
+        // Local password still updated for offline worker login.
+      }
+    }
+    return null;
   }
 
   Future<FarmUser?> _loadOrCreateUserDoc(String uid, String email) async {
@@ -178,19 +245,15 @@ class AppRepository {
     required String name,
     required String email,
     required UserRole role,
+    String? createdById,
   }) async {
-    final user = FarmUser(
-      id: _uuid.v4(),
+    return createWorkerAccount(
+      farmId: farmId,
       name: name,
       email: email,
-      farmId: farmId,
       role: role,
-      createdAt: DateTime.now(),
+      createdById: createdById ?? farmId,
     );
-    await _store.putMap(HiveBoxes.users, user.id, user.toMap());
-    await _store.enqueueSync({'op': 'upsertUser', 'data': user.toMap()});
-    await _triggerSync(farmId);
-    return user;
   }
 
   Farm? farm(String farmId) {
@@ -426,11 +489,143 @@ class AppRepository {
       .toList()
     ..sort((a, b) => a.dueDate.compareTo(b.dueDate));
 
+  List<FarmTask> tasksForWorker(String farmId, String workerId) => tasks(farmId)
+      .where((t) => t.assigneeId == workerId)
+      .toList();
+
   Future<FarmTask> saveTask(FarmTask task) async {
     await _store.putMap(HiveBoxes.tasks, task.id, task.toMap());
     await _store.enqueueSync({'op': 'upsertTask', 'data': task.toMap()});
     await _triggerSync(task.farmId);
     return task;
+  }
+
+  Future<FarmTask> assignTask({
+    required FarmTask task,
+    required FarmUser supervisor,
+    required FarmUser assignee,
+  }) async {
+    final assigned = task.copyWith(
+      assigneeId: assignee.id,
+      assigneeName: assignee.name,
+      assignedById: supervisor.id,
+      assignedByName: supervisor.name,
+      status: TaskStatus.pending,
+    );
+    await saveTask(assigned);
+    await _notifyTaskUser(
+      farmId: task.farmId,
+      targetUserId: assignee.id,
+      taskId: task.id,
+      type: AlertType.taskAssigned,
+      title: 'New task: ${task.title}',
+      message: '${supervisor.name} assigned you a task due ${task.dueDate.day}/${task.dueDate.month}.',
+    );
+    return assigned;
+  }
+
+  Future<FarmTask> completeTaskByWorker({
+    required FarmTask task,
+    required String workerNotes,
+  }) async {
+    final updated = task.copyWith(
+      status: TaskStatus.awaitingReview,
+      workerNotes: workerNotes,
+      completedAt: DateTime.now(),
+    );
+    await saveTask(updated);
+    if (task.assignedById != null) {
+      await _notifyTaskUser(
+        farmId: task.farmId,
+        targetUserId: task.assignedById!,
+        taskId: task.id,
+        type: AlertType.other,
+        title: 'Task ready for review: ${task.title}',
+        message: '${task.assigneeName ?? 'Worker'} submitted work notes.',
+      );
+    }
+    return updated;
+  }
+
+  Future<FarmTask> reviewTaskBySupervisor({
+    required FarmTask task,
+    required String supervisorNotes,
+    required FarmUser supervisor,
+  }) async {
+    final updated = task.copyWith(
+      status: TaskStatus.completed,
+      supervisorNotes: supervisorNotes,
+      reviewedAt: DateTime.now(),
+    );
+    await saveTask(updated);
+    if (task.assigneeId != null) {
+      await _notifyTaskUser(
+        farmId: task.farmId,
+        targetUserId: task.assigneeId!,
+        taskId: task.id,
+        type: AlertType.taskReviewed,
+        title: 'Task approved: ${task.title}',
+        message: '${supervisor.name} marked this task complete. $supervisorNotes',
+      );
+    }
+    return updated;
+  }
+
+  Future<void> _notifyTaskUser({
+    required String farmId,
+    required String targetUserId,
+    required String taskId,
+    required AlertType type,
+    required String title,
+    required String message,
+  }) async {
+    await addAlert(FarmAlert(
+      id: _uuid.v4(),
+      farmId: farmId,
+      type: type,
+      title: title,
+      message: message,
+      createdAt: DateTime.now(),
+      relatedId: taskId,
+      targetUserId: targetUserId,
+    ));
+  }
+
+  /// CSV summary for supervisor — tasks, workers, completion rates.
+  String generatePerformanceReport(String farmId) {
+    final farmTasks = tasks(farmId);
+    final staff = workers(farmId);
+    final buf = StringBuffer();
+    buf.writeln('Roots Farm Performance Report');
+    buf.writeln('Generated,${DateTime.now().toIso8601String()}');
+    buf.writeln('');
+    buf.writeln('WORKER SUMMARY');
+    buf.writeln('Name,Role,Assigned,Completed,Awaiting Review,Completion %');
+    for (final w in staff) {
+      final mine = farmTasks.where((t) => t.assigneeId == w.id).toList();
+      final done = mine.where((t) => t.status == TaskStatus.completed).length;
+      final review = mine.where((t) => t.status == TaskStatus.awaitingReview).length;
+      final pct = mine.isEmpty ? 0 : ((done / mine.length) * 100).round();
+      buf.writeln('${w.name},${w.role.name},${mine.length},$done,$review,$pct%');
+    }
+    buf.writeln('');
+    buf.writeln('TASK DETAIL');
+    buf.writeln('Title,Assignee,Status,Priority,Due,Worker Notes,Supervisor Notes');
+    for (final t in farmTasks) {
+      buf.writeln(
+        '"${t.title}","${t.assigneeName ?? ''}",${t.status.name},${t.priority.name},'
+        '${t.dueDate.toIso8601String()},"${t.workerNotes ?? ''}","${t.supervisorNotes ?? ''}"',
+      );
+    }
+    return buf.toString();
+  }
+
+  List<FarmAlert> alertsForUser(String farmId, String userId, {bool isSupervisor = false}) {
+    final all = alerts(farmId);
+    if (isSupervisor) return all;
+    return all
+        .where((a) => a.targetUserId == null || a.targetUserId == userId)
+        .toList();
   }
 
   // ── Crops (Firebase — partner MySQL schema ported) ────────
@@ -573,11 +768,16 @@ class AppRepository {
     await _store.enqueueSync({'op': 'upsertAlert', 'data': alert.toMap()});
     await _triggerSync(alert.farmId);
     if (notify) {
-      await NotificationService.instance.showAlert(
-        id: alert.id.hashCode,
-        title: alert.title,
-        body: alert.message,
-      );
+      final sessionId = _store.sessionUserId;
+      final forCurrentUser =
+          alert.targetUserId == null || alert.targetUserId == sessionId;
+      if (forCurrentUser) {
+        await NotificationService.instance.showAlert(
+          id: alert.id.hashCode,
+          title: alert.title,
+          body: alert.message,
+        );
+      }
     }
     return alert;
   }

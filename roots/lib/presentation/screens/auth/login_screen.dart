@@ -144,7 +144,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               ),
                               const SizedBox(height: 6),
                               const Text(
-                                'Use farmer@roots.app / roots123 for the demo farm.',
+                                'Owner: farmer@roots.app / roots123\n'
+                                'Admin: manager@roots.app / admin123\n'
+                                'Worker: worker@roots.app / 12345',
                                 style: TextStyle(color: RootsColors.muted, fontSize: 13),
                               ),
                               const SizedBox(height: 22),

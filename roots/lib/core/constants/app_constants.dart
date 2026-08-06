@@ -1,4 +1,6 @@
-/// App-wide constants for Roots.
+// App-wide constants for Roots.
+import 'enums.dart';
+
 class AppConstants {
   static const appName = 'Roots';
   static const tagline = 'AI-powered farm management';
@@ -9,6 +11,18 @@ class AppConstants {
 
   static const demoEmail = 'farmer@roots.app';
   static const demoPassword = 'roots123';
+
+  /// Default password for supervisor-created worker accounts.
+  static const defaultWorkerPassword = '12345';
+
+  /// Default password for supervisor-created admin (manager) accounts.
+  static const defaultAdminPassword = 'admin123';
+
+  static String defaultPasswordForRole(UserRole role) => switch (role) {
+        UserRole.worker => defaultWorkerPassword,
+        UserRole.manager => defaultAdminPassword,
+        UserRole.owner => demoPassword,
+      };
 }
 
 class HiveBoxes {
